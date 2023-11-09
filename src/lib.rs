@@ -4,7 +4,7 @@ pub struct Circle {
     x: f64,
     y: f64,
     radius: f64,
-    color: [u8; 3],
+    color: [u8; 4],
 }
 
 pub struct Rectangle {
@@ -12,14 +12,18 @@ pub struct Rectangle {
     y: f64,
     width: f64,
     height: f64,
-    color: [u8; 3],
+    color: [u8; 4],
+}
+
+pub enum Object {
+    Circle(Circle),
+    Rectangle(Rectangle),
 }
 
 pub struct Renderer {
     width: u32,
     height: u32,
-    circles: Vec<Circle>,
-    rectangles: Vec<Rectangle>,
+    objects: Vec<Object>,
     stretch: f32,
 }
 
@@ -27,34 +31,45 @@ pub fn new_renderer(width: u32, height: u32) -> Renderer {
     Renderer {
         width,
         height,
-        circles: Vec::new(),
-        rectangles: Vec::new(),
+        objects: Vec::new(),
         stretch: 2.3,
     }
 }
 
 impl Renderer {
     fn render(&self) {
-        let mut pixel_grid = vec![vec![[0, 0, 0]; self.width as usize]; self.height as usize];
-        for i in 0..self.circles.len() {
-            render_circle(&self.circles[i], &mut pixel_grid, &self.stretch);
+        let mut pixel_grid = vec![vec![[0, 0, 0, 0]; self.width as usize]; self.height as usize];
+        for object in &self.objects {
+            // check if object is circle or rectangle
+            match object {
+                Object::Circle(circle) => render_circle(circle, &mut pixel_grid, &self.stretch),
+                Object::Rectangle(rectangle) => {
+                    render_rectangle(rectangle, &mut pixel_grid, &self.stretch)
+                }
+            }
         }
-        for i in 0..self.rectangles.len() {
-            render_rectangle(&self.rectangles[i], &mut pixel_grid, &self.stretch);
-        }
-        render_pixel_grid(pixel_grid);
+        self.render_pixel_grid(pixel_grid);
     }
 
-    fn add_circle(&mut self, circle: Circle) {
-        self.circles.push(circle);
+    fn add_object(&mut self, object: Object) {
+        self.objects.push(object);
     }
 
-    fn add_rectangle(&mut self, rectangle: Rectangle) {
-        self.rectangles.push(rectangle);
+    fn set_stretch(&mut self, stretch: f32) {
+        self.stretch = stretch;
+    }
+
+    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<[u8; 4]>>) {
+        for row in pixel_grid {
+            for pixel in row {
+                print!("{}", "=".truecolor(pixel[0], pixel[1], pixel[2]));
+            }
+            println!();
+        }
     }
 }
 
-pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<[u8; 3]>>, stretch: &f32) {
+pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<[u8; 4]>>, stretch: &f32) {
     let squared_radius = circle.radius.powi(2);
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
@@ -70,7 +85,7 @@ pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<[u8; 3]>>, stretc
     }
 }
 
-pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<[u8; 3]>>, stretch: &f32) {
+pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<[u8; 4]>>, stretch: &f32) {
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
             let pixel = &mut pixel_grid[y][x];
@@ -86,31 +101,22 @@ pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<[u8; 3]>
     }
 }
 
-pub fn render_pixel_grid(pixel_grid: Vec<Vec<[u8; 3]>>) {
-    for row in pixel_grid {
-        for pixel in row {
-            print!("{}", "=".truecolor(pixel[0], pixel[1], pixel[2]));
-        }
-        println!();
-    }
-}
-
 //test
 #[test]
 fn test_render() {
-    let mut renderer = new_renderer(240, 160);
-    renderer.add_circle(Circle {
-        x: 40.0,
-        y: 70.0,
-        radius: 20.0,
-        color: [255, 0, 0],
-    });
-    renderer.add_rectangle(Rectangle {
-        x: 20.0,
+    let mut renderer = new_renderer(80, 40);
+    renderer.add_object(Object::Circle(Circle {
+        x: 10.0,
         y: 20.0,
-        width: 20.0,
-        height: 20.0,
-        color: [0, 255, 0],
-    });
+        radius: 5.0,
+        color: [255, 0, 0, 255],
+    }));
+    renderer.add_object(Object::Rectangle(Rectangle {
+        x: 10.0,
+        y: 15.0,
+        width: 7.0,
+        height: 7.0,
+        color: [0, 255, 0, 255],
+    }));
     renderer.render();
 }
