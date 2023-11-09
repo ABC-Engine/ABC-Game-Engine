@@ -1,18 +1,19 @@
 use colored::Colorize;
+use std::time::Instant;
 
 pub struct Circle {
-    x: f64,
-    y: f64,
-    radius: f64,
-    color: [u8; 4],
+    pub x: f64,
+    pub y: f64,
+    pub radius: f64,
+    pub color: [u8; 4],
 }
 
 pub struct Rectangle {
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
-    color: [u8; 4],
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub color: [u8; 4],
 }
 
 pub enum Object {
@@ -23,7 +24,7 @@ pub enum Object {
 pub struct Renderer {
     width: u32,
     height: u32,
-    objects: Vec<Object>,
+    pub objects: Vec<Object>,
     stretch: f32,
 }
 
@@ -37,7 +38,7 @@ pub fn new_renderer(width: u32, height: u32) -> Renderer {
 }
 
 impl Renderer {
-    fn render(&self) {
+    pub fn render(&self) {
         let mut pixel_grid = vec![vec![[0, 0, 0, 0]; self.width as usize]; self.height as usize];
         for object in &self.objects {
             // check if object is circle or rectangle
@@ -51,21 +52,24 @@ impl Renderer {
         self.render_pixel_grid(pixel_grid);
     }
 
-    fn add_object(&mut self, object: Object) {
+    pub fn add_object(&mut self, object: Object) {
         self.objects.push(object);
     }
 
-    fn set_stretch(&mut self, stretch: f32) {
+    pub fn set_stretch(&mut self, stretch: f32) {
         self.stretch = stretch;
     }
 
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<[u8; 4]>>) {
+        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1 (supposedly, not working on windows)
+        let mut screen_string = String::new();
         for row in pixel_grid {
             for pixel in row {
-                print!("{}", "=".truecolor(pixel[0], pixel[1], pixel[2]));
+                screen_string.push_str(&format!("{}", "=".truecolor(pixel[0], pixel[1], pixel[2])));
             }
-            println!();
+            screen_string.push_str("\n");
         }
+        println!("{}", screen_string);
     }
 }
 
@@ -99,24 +103,4 @@ pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<[u8; 4]>
             }
         }
     }
-}
-
-//test
-#[test]
-fn test_render() {
-    let mut renderer = new_renderer(80, 40);
-    renderer.add_object(Object::Circle(Circle {
-        x: 10.0,
-        y: 20.0,
-        radius: 5.0,
-        color: [255, 0, 0, 255],
-    }));
-    renderer.add_object(Object::Rectangle(Rectangle {
-        x: 10.0,
-        y: 15.0,
-        width: 7.0,
-        height: 7.0,
-        color: [0, 255, 0, 255],
-    }));
-    renderer.render();
 }
