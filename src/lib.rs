@@ -1,11 +1,19 @@
 use colored::Colorize;
 use std::time::Instant;
 
+#[derive(Clone, Copy)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: f32,
+}
+
 pub struct Circle {
     pub x: f64,
     pub y: f64,
     pub radius: f64,
-    pub color: [u8; 4],
+    pub color: Color,
 }
 
 pub struct Rectangle {
@@ -13,7 +21,7 @@ pub struct Rectangle {
     pub y: f64,
     pub width: f64,
     pub height: f64,
-    pub color: [u8; 4],
+    pub color: Color,
 }
 
 pub enum Object {
@@ -39,7 +47,18 @@ pub fn new_renderer(width: u32, height: u32) -> Renderer {
 
 impl Renderer {
     pub fn render(&self) {
-        let mut pixel_grid = vec![vec![[0, 0, 0, 0]; self.width as usize]; self.height as usize];
+        let mut pixel_grid = vec![
+            vec![
+                Color {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 0.0
+                };
+                self.width as usize
+            ];
+            self.height as usize
+        ];
         for object in &self.objects {
             // check if object is circle or rectangle
             match object {
@@ -60,20 +79,24 @@ impl Renderer {
         self.stretch = stretch;
     }
 
-    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<[u8; 4]>>) {
-        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1 (supposedly, not working on windows)
+    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>) {
+        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1 (supposedly, does not seem to be working on windows)
         let mut screen_string = String::new();
         for row in pixel_grid {
             for pixel in row {
-                screen_string.push_str(&format!("{}", "=".truecolor(pixel[0], pixel[1], pixel[2])));
+                screen_string.push_str(&format!("{}", "=".truecolor(pixel.r, pixel.g, pixel.b)));
             }
             screen_string.push_str("\n");
         }
-        println!("{}", screen_string);
+        print!("{}", screen_string);
     }
 }
 
-pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<[u8; 4]>>, stretch: &f32) {
+pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<Color>>, stretch: &f32) {
+    if circle.color.a == 0.0 {
+        return;
+    }
+
     let squared_radius = circle.radius.powi(2);
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
@@ -83,13 +106,25 @@ pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<[u8; 4]>>, stretc
             let dy = y as f64 - circle.y;
             let distance_squared = dx.powi(2) + dy.powi(2);
             if distance_squared <= squared_radius {
-                *pixel = circle.color;
+                //*pixel = circle.color;
+                // alpha
+                if circle.color.a == 1.0 {
+                    *pixel = circle.color; // easier and should capture division by 0
+                } else {
+                    pixel.r = (pixel.r as f32 * (1.0 - circle.color.a) as f32) as u8;
+                    pixel.r += (circle.color.r as f32 * circle.color.a) as u8;
+                    pixel.g = (pixel.g as f32 * (1.0 - circle.color.a) as f32) as u8;
+                    pixel.g += (circle.color.g as f32 * circle.color.a) as u8;
+                    pixel.b = (pixel.b as f32 * (1.0 - circle.color.a) as f32) as u8;
+                    pixel.b += (circle.color.b as f32 * circle.color.a) as u8;
+                    pixel.a = 1.0;
+                }
             }
         }
     }
 }
 
-pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<[u8; 4]>>, stretch: &f32) {
+pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<Color>>, stretch: &f32) {
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
             let pixel = &mut pixel_grid[y][x];
