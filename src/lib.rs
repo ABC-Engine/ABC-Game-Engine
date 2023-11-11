@@ -68,7 +68,7 @@ impl Renderer {
         self.render_pixel_grid(pixel_grid);
     }
 
-    pub fn add_object(&mut self, object: Object) {
+    pub fn add_object(&mut self, object: &Object) {
         self.objects.push(object);
     }
 
