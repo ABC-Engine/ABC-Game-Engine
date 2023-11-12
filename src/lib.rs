@@ -1,4 +1,6 @@
 use colored::Colorize;
+use crossterm::cursor;
+use std::io::Write;
 
 #[derive(Clone, Copy)]
 pub struct Color {
@@ -91,14 +93,6 @@ impl Scene {
     }
 }
 
-pub fn new_renderer(width: u32, height: u32) -> Renderer {
-    Renderer {
-        width,
-        height,
-        stretch: 2.3,
-    }
-}
-
 impl Renderer {
     ///  calls the update method on all objects in the scene and then renders the scene
     pub fn render(&self, scene: &mut Scene) {
@@ -107,6 +101,7 @@ impl Renderer {
         }
         let mut pixel_grid =
             vec![vec![scene.background_color; self.width as usize]; self.height as usize];
+        // could possible be done multithreaded and combine layers afterward
         for object in &scene.objects {
             // check if object is circle or rectangle
             match object.get_sprite() {
@@ -132,20 +127,31 @@ impl Renderer {
     }
 
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>) {
-        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1 (supposedly, does not seem to be working on windows)
-        let mut screen_string = String::new();
-        for row in pixel_grid {
-            for pixel in row {
+        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1
+        let mut stdout = std::io::stdout().lock();
+        write!(stdout, "{}", cursor::Hide).unwrap();
+        for (x, row) in pixel_grid.into_iter().enumerate() {
+            for (y, pixel) in row.into_iter().enumerate() {
+                // doesn't work because it doesnt delete the previous character
+                //write!(stdout, "{}", cursor::MoveTo(x as u16, y as u16)).unwrap();
+
                 if pixel.a == 0.0 {
-                    screen_string.push_str(&format!("{}", " "));
+                    write!(stdout, "{}", " ").unwrap();
                 } else {
-                    screen_string
-                        .push_str(&format!("{}", "=".truecolor(pixel.r, pixel.g, pixel.b)));
+                    write!(stdout, "{}", "=".truecolor(pixel.r, pixel.g, pixel.b)).unwrap();
                 }
             }
-            screen_string.push_str("\n");
+            write!(stdout, "\n").unwrap();
         }
-        print!("{}", screen_string);
+        stdout.flush().unwrap();
+    }
+
+    pub fn new(width: u32, height: u32) -> Renderer {
+        Renderer {
+            width,
+            height,
+            stretch: 2.3,
+        }
     }
 }
 

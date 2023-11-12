@@ -1,5 +1,5 @@
 // this highlights some major issues with the current renderer
-use std::time::Instant;
+use std::{thread, time, time::Instant};
 use Console_Renderer::*;
 
 struct BouncingBall {
@@ -16,15 +16,19 @@ impl Update for BouncingBall {
         self.transform.x += self.x_velocity;
         self.transform.y += self.y_velocity;
 
-        if self.transform.y + CIRCLE_RADIUS >= WINDOW_DIMS.1 as f64
-            || self.transform.y - CIRCLE_RADIUS <= 0.0 as f64
-        {
-            self.y_velocity *= -1.0;
+        if self.transform.y >= WINDOW_DIMS.1 as f64 {
+            self.y_velocity *= -0.9;
+            self.transform.y = WINDOW_DIMS.1 as f64;
+        } else if self.transform.y <= 0.0 as f64 {
+            self.y_velocity *= -0.9;
+            self.transform.y = 0.0;
         }
-        if self.transform.x + CIRCLE_RADIUS >= WINDOW_DIMS.0 as f64
-            || self.transform.x - CIRCLE_RADIUS <= 0.0 as f64
-        {
-            self.x_velocity *= -1.0;
+        if self.transform.x >= WINDOW_DIMS.0 as f64 {
+            self.x_velocity *= -0.9;
+            self.transform.x = WINDOW_DIMS.1 as f64
+        } else if self.transform.x <= 0.0 as f64 {
+            self.x_velocity *= -0.9;
+            self.transform.x = 0.0;
         }
     }
 }
@@ -44,7 +48,7 @@ const CIRCLE_RADIUS: f64 = 5.0;
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
-    let mut renderer = new_renderer(WINDOW_DIMS.0, WINDOW_DIMS.1);
+    let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
     let mut scene = Scene::new();
     let rectangle = Rectangle {
         width: 10.0,
@@ -62,7 +66,7 @@ fn main() {
             r: 255,
             g: 0,
             b: 0,
-            a: 0.5,
+            a: 1.0,
         },
     };
 
@@ -74,7 +78,7 @@ fn main() {
             scale: 1.0,
         },
         sprite: Sprite::Circle(circle),
-        x_velocity: 0.00,
+        x_velocity: 1.00,
         y_velocity: 0.00,
     };
 
@@ -82,14 +86,12 @@ fn main() {
 
     loop {
         let start_of_frame_time = Instant::now();
-        let circle_index = 1;
 
         renderer.render(&mut scene);
 
-        loop {
-            if start_of_frame_time.elapsed().as_millis() >= 16 {
-                break;
-            }
-        }
+        // this just stops the program sometimes?
+        thread::sleep(time::Duration::from_millis(
+            (32 as f32 - start_of_frame_time.elapsed().as_millis() as f32).max(0.0) as u64,
+        )); // 30 fps
     }
 }
