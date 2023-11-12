@@ -9,49 +9,63 @@ pub struct Color {
 }
 
 pub struct Circle {
-    pub x: f64,
-    pub y: f64,
     pub radius: f64,
     pub color: Color,
 }
 
 pub struct Rectangle {
-    pub x: f64,
-    pub y: f64,
     pub width: f64,
     pub height: f64,
     pub color: Color,
 }
 
-pub enum Object {
+/// Update is a trait that is implemented by objects that need to be updated every frame
+pub trait Update {
+    fn update(&mut self) {}
+}
+
+/// Object is a trait that is implemented by objects that can be rendered
+pub trait Object: Update {
+    fn get_sprite(&self) -> &Sprite;
+    fn get_transform(&self) -> &Transform;
+}
+
+/// Transform is a struct that holds the position, rotation, and scale of an object
+pub struct Transform {
+    pub x: f64,
+    pub y: f64,
+    pub rotation: f64,
+    pub scale: f64,
+}
+
+/// Sprite is an enum that can be either a circle or a rectangle
+pub enum Sprite {
     Circle(Circle),
     Rectangle(Rectangle),
 }
 
-impl From<Circle> for Object {
+impl From<Circle> for Sprite {
     fn from(circle: Circle) -> Self {
-        Object::Circle(circle)
+        Sprite::Circle(circle)
     }
 }
 
-impl From<Rectangle> for Object {
+impl From<Rectangle> for Sprite {
     fn from(rectangle: Rectangle) -> Self {
-        Object::Rectangle(rectangle)
+        Sprite::Rectangle(rectangle)
     }
 }
 
-pub trait Update {
-    fn update(&mut self, delta_time: f64) {} //;
-}
-
+/// Renderer is responsible for rendering the scene
 pub struct Renderer {
     width: u32,
     height: u32,
     stretch: f32,
 }
 
+/// Scene is responsible for holding all objects and the background color
 pub struct Scene {
-    pub objects: Vec<Object>,
+    pub objects: Vec<Box<dyn Object>>,
     pub background_color: Color,
 }
 
@@ -72,8 +86,8 @@ impl Scene {
         self.background_color = color;
     }
 
-    pub fn add_object(&mut self, object: impl Into<Object>) {
-        self.objects.push(object.into());
+    pub fn add_object(&mut self, object: impl Object + 'static) {
+        self.objects.push(Box::new(object));
     }
 }
 
@@ -86,16 +100,28 @@ pub fn new_renderer(width: u32, height: u32) -> Renderer {
 }
 
 impl Renderer {
-    pub fn render(&self, scene: &Scene) {
+    ///  calls the update method on all objects in the scene and then renders the scene
+    pub fn render(&self, scene: &mut Scene) {
+        for object in &mut scene.objects {
+            object.update();
+        }
         let mut pixel_grid =
             vec![vec![scene.background_color; self.width as usize]; self.height as usize];
         for object in &scene.objects {
             // check if object is circle or rectangle
-            match object {
-                Object::Circle(circle) => render_circle(circle, &mut pixel_grid, &self.stretch),
-                Object::Rectangle(rectangle) => {
-                    render_rectangle(rectangle, &mut pixel_grid, &self.stretch)
-                }
+            match object.get_sprite() {
+                Sprite::Circle(circle) => render_circle(
+                    &circle,
+                    &object.get_transform(),
+                    &mut pixel_grid,
+                    &self.stretch,
+                ),
+                Sprite::Rectangle(rectangle) => render_rectangle(
+                    &rectangle,
+                    &object.get_transform(),
+                    &mut pixel_grid,
+                    &self.stretch,
+                ),
             }
         }
         self.render_pixel_grid(pixel_grid);
@@ -123,7 +149,12 @@ impl Renderer {
     }
 }
 
-pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<Color>>, stretch: &f32) {
+pub fn render_circle(
+    circle: &Circle,
+    transform: &Transform,
+    pixel_grid: &mut Vec<Vec<Color>>,
+    stretch: &f32,
+) {
     if circle.color.a == 0.0 {
         return;
     }
@@ -133,8 +164,8 @@ pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<Color>>, stretch:
         for y in 0..pixel_grid.len() {
             let pixel = &mut pixel_grid[y][x];
             let adjusted_x = x as f32 / stretch;
-            let dx = adjusted_x as f64 - circle.x;
-            let dy = y as f64 - circle.y;
+            let dx = adjusted_x as f64 - transform.x;
+            let dy = y as f64 - transform.y;
             let distance_squared = dx.powi(2) + dy.powi(2);
             if distance_squared <= squared_radius {
                 if circle.color.a == 1.0 {
@@ -154,7 +185,12 @@ pub fn render_circle(circle: &Circle, pixel_grid: &mut Vec<Vec<Color>>, stretch:
     }
 }
 
-pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<Color>>, stretch: &f32) {
+pub fn render_rectangle(
+    rectangle: &Rectangle,
+    transform: &Transform,
+    pixel_grid: &mut Vec<Vec<Color>>,
+    stretch: &f32,
+) {
     if rectangle.color.a == 0.0 {
         return;
     }
@@ -162,10 +198,10 @@ pub fn render_rectangle(rectangle: &Rectangle, pixel_grid: &mut Vec<Vec<Color>>,
         for y in 0..pixel_grid.len() {
             let pixel = &mut pixel_grid[y][x];
             let adjusted_x = x as f32 / stretch;
-            if adjusted_x as f64 >= rectangle.x
-                && adjusted_x as f64 <= rectangle.x + rectangle.width
-                && y as f64 >= rectangle.y
-                && y as f64 <= rectangle.y + rectangle.height
+            if adjusted_x as f64 >= transform.x
+                && adjusted_x as f64 <= transform.x + rectangle.width
+                && y as f64 >= transform.y
+                && y as f64 <= transform.y + rectangle.height
             {
                 if rectangle.color.a == 1.0 {
                     *pixel = rectangle.color;
