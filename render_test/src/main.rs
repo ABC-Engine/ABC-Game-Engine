@@ -1,6 +1,6 @@
 // this highlights some major issues with the current renderer
 use std::time::Instant;
-use Console_Renderer::{new_renderer, Circle, Color, Object, Rectangle};
+use Console_Renderer::{new_renderer, Circle, Color, Object, Rectangle, Scene};
 
 struct BouncingBall {
     x_velocity: f64,
@@ -15,6 +15,7 @@ const circle_radius: f64 = 5.0;
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
     let mut renderer = new_renderer(window_size.0, window_size.1);
+    let mut scene = Scene::new();
     let rectangle = Rectangle {
         x: 0.0,
         y: 0.0,
@@ -46,15 +47,15 @@ fn main() {
         y: 20.0,
     };
 
-    renderer.add_object(Object::Rectangle(rectangle));
-    renderer.add_object(Object::Circle(circle));
+    scene.add_object(rectangle);
+    scene.add_object(circle);
 
     loop {
         let start_of_frame_time = Instant::now();
         let circle_index = 1;
 
         // definitely shouldn't have to do this
-        match &mut renderer.objects[1] {
+        match &mut scene.objects[1] {
             Object::Circle(circle) => circle.y = bouncy_ball.y,
             Object::Rectangle(rectangle) => rectangle.x += 0.05,
         }
@@ -75,7 +76,7 @@ fn main() {
             bouncy_ball.x_velocity *= -1.0;
         }
 
-        renderer.render();
+        renderer.render(&scene);
 
         loop {
             if start_of_frame_time.elapsed().as_millis() >= 16 {

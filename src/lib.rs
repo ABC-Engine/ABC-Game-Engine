@@ -1,5 +1,4 @@
 use colored::Colorize;
-use std::time::Instant;
 
 #[derive(Clone, Copy)]
 pub struct Color {
@@ -29,34 +28,68 @@ pub enum Object {
     Rectangle(Rectangle),
 }
 
+impl From<Circle> for Object {
+    fn from(circle: Circle) -> Self {
+        Object::Circle(circle)
+    }
+}
+
+impl From<Rectangle> for Object {
+    fn from(rectangle: Rectangle) -> Self {
+        Object::Rectangle(rectangle)
+    }
+}
+
+pub trait Update {
+    fn update(&mut self, delta_time: f64) {} //;
+}
+
 pub struct Renderer {
     width: u32,
     height: u32,
-    pub objects: Vec<Object>,
     stretch: f32,
+}
+
+pub struct Scene {
+    pub objects: Vec<Object>,
     pub background_color: Color,
+}
+
+impl Scene {
+    pub fn new() -> Scene {
+        Scene {
+            objects: Vec::new(),
+            background_color: Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 1.0,
+            },
+        }
+    }
+
+    pub fn set_background_color(&mut self, color: Color) {
+        self.background_color = color;
+    }
+
+    pub fn add_object(&mut self, object: impl Into<Object>) {
+        self.objects.push(object.into());
+    }
 }
 
 pub fn new_renderer(width: u32, height: u32) -> Renderer {
     Renderer {
         width,
         height,
-        objects: Vec::new(),
         stretch: 2.3,
-        background_color: Color {
-            r: 0,
-            g: 0,
-            b: 100,
-            a: 1.0,
-        },
     }
 }
 
 impl Renderer {
-    pub fn render(&self) {
+    pub fn render(&self, scene: &Scene) {
         let mut pixel_grid =
-            vec![vec![self.background_color; self.width as usize]; self.height as usize];
-        for object in &self.objects {
+            vec![vec![scene.background_color; self.width as usize]; self.height as usize];
+        for object in &scene.objects {
             // check if object is circle or rectangle
             match object {
                 Object::Circle(circle) => render_circle(circle, &mut pixel_grid, &self.stretch),
@@ -66,10 +99,6 @@ impl Renderer {
             }
         }
         self.render_pixel_grid(pixel_grid);
-    }
-
-    pub fn add_object(&mut self, object: &Object) {
-        self.objects.push(object);
     }
 
     pub fn set_stretch(&mut self, stretch: f32) {
