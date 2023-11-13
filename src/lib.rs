@@ -127,9 +127,16 @@ impl Renderer {
     }
 
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>) {
-        print!("\x1B[2J\x1B[1;1H"); // clear terminal and set cursor to 1,1
         let mut stdout = std::io::stdout().lock();
         write!(stdout, "{}", cursor::Hide).unwrap();
+        write!(
+            stdout,
+            "{}",
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )
+        .unwrap();
+        write!(stdout, "{}", cursor::MoveTo(0, 0)).unwrap();
+
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
                 // doesn't work because it doesnt delete the previous character
