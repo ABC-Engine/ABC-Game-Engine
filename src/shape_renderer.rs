@@ -69,7 +69,6 @@ pub fn render_texture(
     stretch: &f32,
 ) {
     let (texture_width, texture_height) = (texture.pixels[0].len(), texture.pixels.len());
-    print!("{} {}", texture_width, texture_height);
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
             let out_pixel = &mut pixel_grid[y][x];
