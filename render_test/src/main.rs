@@ -9,6 +9,11 @@ struct BouncingBall {
     y_velocity: f64,
 }
 
+struct PlagueMask {
+    transform: Transform,
+    sprite: Sprite,
+}
+
 impl Update for BouncingBall {
     fn update(&mut self) {
         self.y_velocity += 0.1;
@@ -43,6 +48,17 @@ impl Object for BouncingBall {
     }
 }
 
+impl Update for PlagueMask {}
+impl Object for PlagueMask {
+    fn get_sprite(&self) -> &Sprite {
+        &self.sprite
+    }
+
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+}
+
 const WINDOW_DIMS: (u32, u32) = (80, 40);
 const CIRCLE_RADIUS: f64 = 5.0;
 
@@ -50,16 +66,13 @@ const CIRCLE_RADIUS: f64 = 5.0;
 fn main() {
     let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
     let mut scene = Scene::new();
-    let rectangle = Rectangle {
-        width: 10.0,
-        height: 10.0,
-        color: Color {
-            r: 0,
-            g: 0,
-            b: 0,
-            a: 1.0,
-        },
-    };
+    scene.set_background_color(Color {
+        r: 100,
+        g: 0,
+        b: 0,
+        a: 1.0,
+    });
+
     let circle = Circle {
         radius: CIRCLE_RADIUS,
         color: Color {
@@ -70,26 +83,40 @@ fn main() {
         },
     };
 
-    let mut bouncy_ball = BouncingBall {
+    let plague_mask = Image {
+        texture: load_texture("Sample_Images/Icon10_01.png", 2.3),
+    };
+
+    let bouncy_ball = BouncingBall {
         transform: Transform {
             x: 10.0,
             y: 20.0,
             rotation: 0.0,
             scale: 1.0,
         },
-        sprite: Sprite::Circle(circle),
+        sprite: circle.into(),
         x_velocity: 1.00,
         y_velocity: 0.00,
     };
 
+    let plague_mask_object = PlagueMask {
+        transform: Transform {
+            x: 20.0,
+            y: 20.0,
+            rotation: 0.0,
+            scale: 1.0,
+        },
+        sprite: plague_mask.into(),
+    };
+
     scene.add_object(bouncy_ball);
+    scene.add_object(plague_mask_object);
 
     loop {
         let start_of_frame_time = Instant::now();
 
         renderer.render(&mut scene);
 
-        // this just stops the program sometimes?
         thread::sleep(time::Duration::from_millis(
             (32 as f32 - start_of_frame_time.elapsed().as_millis() as f32).max(0.0) as u64,
         )); // 30 fps

@@ -1,5 +1,5 @@
 use crate::*;
-//use function::{Circle, Color, Object, Rectangle, Sprite, Transform, Update};
+// should the shape structs be moved to this file?
 
 pub fn render_circle(
     circle: &Circle,
@@ -23,14 +23,7 @@ pub fn render_circle(
                 if circle.color.a == 1.0 {
                     *pixel = circle.color;
                 } else {
-                    // there has to be a better way to do this but I'm not sure how...
-                    pixel.r = (pixel.r as f32 * (1.0 - circle.color.a) as f32) as u8;
-                    pixel.r += (circle.color.r as f32 * circle.color.a) as u8;
-                    pixel.g = (pixel.g as f32 * (1.0 - circle.color.a) as f32) as u8;
-                    pixel.g += (circle.color.g as f32 * circle.color.a) as u8;
-                    pixel.b = (pixel.b as f32 * (1.0 - circle.color.a) as f32) as u8;
-                    pixel.b += (circle.color.b as f32 * circle.color.a) as u8;
-                    pixel.a = 1.0;
+                    *pixel = overlay_colors(&pixel, &circle.color);
                 }
             }
         }
@@ -58,15 +51,61 @@ pub fn render_rectangle(
                 if rectangle.color.a == 1.0 {
                     *pixel = rectangle.color;
                 } else {
-                    pixel.r = (pixel.r as f32 * (1.0 - rectangle.color.a) as f32) as u8;
-                    pixel.r += (rectangle.color.r as f32 * rectangle.color.a) as u8;
-                    pixel.g = (pixel.g as f32 * (1.0 - rectangle.color.a) as f32) as u8;
-                    pixel.g += (rectangle.color.g as f32 * rectangle.color.a) as u8;
-                    pixel.b = (pixel.b as f32 * (1.0 - rectangle.color.a) as f32) as u8;
-                    pixel.b += (rectangle.color.b as f32 * rectangle.color.a) as u8;
-                    pixel.a = 1.0;
+                    *pixel = overlay_colors(&pixel, &rectangle.color);
                 }
             }
         }
     }
+}
+
+pub struct Texture {
+    pub pixels: Vec<Vec<Color>>, // not sure how inefficient this is but it will do for now
+}
+
+pub fn render_texture(
+    texture: &Texture,
+    transform: &Transform,
+    pixel_grid: &mut Vec<Vec<Color>>,
+    stretch: &f32,
+) {
+    let (texture_width, texture_height) = (texture.pixels[0].len(), texture.pixels.len());
+    print!("{} {}", texture_width, texture_height);
+    for x in 0..pixel_grid[0].len() {
+        for y in 0..pixel_grid.len() {
+            let out_pixel = &mut pixel_grid[y][x];
+            //let adjusted_x = x as f32 / stretch;
+            if x as f64 >= transform.x
+                && x as f64 <= transform.x + texture_width as f64
+                && y as f64 >= transform.y
+                && y as f64 <= transform.y + texture_height as f64
+            {
+                let texture_pixel = &texture.pixels
+                    [((y as f32 - transform.y as f32) as usize).min(texture_height - 1)]
+                    [((x as f32 - transform.x as f32) as usize).min(texture_width - 1)];
+                if texture_pixel.a == 1.0 {
+                    *out_pixel = *texture_pixel;
+                } else {
+                    *out_pixel = overlay_colors(out_pixel, texture_pixel);
+                }
+            }
+        }
+    }
+}
+
+fn overlay_colors(color1: &Color, color2: &Color) -> Color {
+    // there has to be a better way to do this but I'm not sure how...
+    let mut return_color = Color {
+        r: 0,
+        g: 0,
+        b: 0,
+        a: 1.0,
+    };
+    return_color.r = (color1.r as f32 * (1.0 - color2.a) as f32) as u8;
+    return_color.r += (color2.r as f32 * color2.a) as u8;
+    return_color.g = (color1.g as f32 * (1.0 - color2.a) as f32) as u8;
+    return_color.g += (color2.g as f32 * color2.a) as u8;
+    return_color.b = (color1.b as f32 * (1.0 - color2.a) as f32) as u8;
+    return_color.b += (color2.b as f32 * color2.a) as u8;
+    return_color.a = 1.0;
+    return_color
 }

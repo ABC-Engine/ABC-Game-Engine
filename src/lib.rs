@@ -2,9 +2,11 @@ use colored::Colorize;
 use crossterm::cursor;
 mod shape_renderer;
 pub use shape_renderer::*;
+mod load_texture;
+pub use load_texture::*;
 use std::io::Write;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -21,6 +23,12 @@ pub struct Rectangle {
     pub width: f64,
     pub height: f64,
     pub color: Color,
+}
+
+// rectangle with texture
+pub struct Image {
+    // height and width are in texture
+    pub texture: Texture,
 }
 
 /// Update is a trait that is implemented by objects that need to be updated every frame
@@ -46,6 +54,7 @@ pub struct Transform {
 pub enum Sprite {
     Circle(Circle),
     Rectangle(Rectangle),
+    Image(Image),
 }
 
 impl From<Circle> for Sprite {
@@ -57,6 +66,12 @@ impl From<Circle> for Sprite {
 impl From<Rectangle> for Sprite {
     fn from(rectangle: Rectangle) -> Self {
         Sprite::Rectangle(rectangle)
+    }
+}
+
+impl From<Image> for Sprite {
+    fn from(image: Image) -> Self {
+        Sprite::Image(image)
     }
 }
 
@@ -115,6 +130,12 @@ impl Renderer {
                 ),
                 Sprite::Rectangle(rectangle) => render_rectangle(
                     &rectangle,
+                    &object.get_transform(),
+                    &mut pixel_grid,
+                    &self.stretch,
+                ),
+                Sprite::Image(image) => render_texture(
+                    &image.texture,
                     &object.get_transform(),
                     &mut pixel_grid,
                     &self.stretch,

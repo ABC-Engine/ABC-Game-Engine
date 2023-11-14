@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 colored = "2.0.4"
 crossterm = "0.27.0"
+image = "0.24.7"
 
