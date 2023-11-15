@@ -134,12 +134,9 @@ impl Renderer {
                     &mut pixel_grid,
                     &self.stretch,
                 ),
-                Sprite::Image(image) => render_texture(
-                    &image.texture,
-                    &object.get_transform(),
-                    &mut pixel_grid,
-                    &self.stretch,
-                ),
+                Sprite::Image(image) => {
+                    render_texture(&image.texture, &object.get_transform(), &mut pixel_grid)
+                }
             }
         }
         self.render_pixel_grid(pixel_grid);

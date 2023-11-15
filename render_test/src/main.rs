@@ -14,6 +14,17 @@ struct PlagueMask {
     sprite: Sprite,
 }
 
+struct RotatingRectangle {
+    transform: Transform,
+    sprite: Sprite,
+}
+
+impl Update for RotatingRectangle {
+    fn update(&mut self) {
+        self.transform.rotation += 1.0;
+    }
+}
+
 impl Update for BouncingBall {
     fn update(&mut self) {
         self.y_velocity += 0.1;
@@ -47,8 +58,21 @@ impl Object for BouncingBall {
         &self.transform
     }
 }
+impl Object for RotatingRectangle {
+    fn get_sprite(&self) -> &Sprite {
+        &self.sprite
+    }
 
-impl Update for PlagueMask {}
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+}
+
+impl Update for PlagueMask {
+    fn update(&mut self) {
+        self.transform.rotation += 1.0;
+    }
+}
 impl Object for PlagueMask {
     fn get_sprite(&self) -> &Sprite {
         &self.sprite
@@ -87,6 +111,17 @@ fn main() {
         texture: load_texture("Sample_Images/Icon10_01.png", 2.3),
     };
 
+    let rectangle = Rectangle {
+        width: 10.0,
+        height: 10.0,
+        color: Color {
+            r: 0,
+            g: 255,
+            b: 0,
+            a: 1.0,
+        },
+    };
+
     let bouncy_ball = BouncingBall {
         transform: Transform {
             x: 10.0,
@@ -109,8 +144,19 @@ fn main() {
         sprite: plague_mask.into(),
     };
 
-    scene.add_object(bouncy_ball);
+    let rotating_rectangle = RotatingRectangle {
+        transform: Transform {
+            x: 20.0,
+            y: 20.0,
+            rotation: 0.0,
+            scale: 1.0,
+        },
+        sprite: rectangle.into(),
+    };
+
+    //scene.add_object(bouncy_ball);
     scene.add_object(plague_mask_object);
+    //scene.add_object(rotating_rectangle);
 
     loop {
         let start_of_frame_time = Instant::now();
