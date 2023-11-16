@@ -6,7 +6,7 @@ It might be blazingly fast 🚀... tbd
 Note: This is subject to change, these docs could be outdated. Just bug me and I will update them for you.
 ## Rendering an object
 ``` rust
-use crate::*
+use Console_Renderer::*;
 
 //First make a struct for your object
 

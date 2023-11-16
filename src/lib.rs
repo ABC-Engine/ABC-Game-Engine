@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use colored::Colorize;
 use crossterm::cursor;
 mod shape_renderer;
