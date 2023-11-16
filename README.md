@@ -13,6 +13,7 @@ use console_renderer::*;
 struct Ball {
     transform: Transform,
     sprite: Sprite,
+    // anything else can be added here as well
 }
 
 //Every object needs the Object trait implemented
@@ -25,13 +26,8 @@ impl Object for Ball {
     fn get_transform(&self) -> &Transform {
         &self.transform
     }
-}
 
-//Every object also needs the update function (this will be called every frame)
-//For this example, we aren't going to use it so we will keep it empty
-
-impl Update for Ball {
-    fn update(&mut self) {}
+    // This is where we would put update if we had one
 }
 
 fn main()

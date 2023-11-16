@@ -28,7 +28,7 @@ pub fn load_texture(path: &str) -> Texture {
                 r: pixel[0],
                 g: pixel[1],
                 b: pixel[2],
-                a: pixel[3] as f32 / 255.0,
+                a: pixel[3] as f32 / 255.0, // assuming a 0-255 alpha channel for now -- not sure if this could be a problem
             };
             new_texture.pixels[y as usize][x as usize] = color;
         }

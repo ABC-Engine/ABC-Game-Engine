@@ -33,19 +33,13 @@ pub struct Image {
     pub texture: Texture,
 }
 
-/// Update is a trait that is implemented by objects that need to be updated every frame
-pub trait Update {
-    fn update(&mut self) {}
-}
-
-//impl<Object> Update for Object {}
-
 /// Object is a trait that is implemented by objects that can be rendered
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
     // So that it default accesses the transform and sprite variables of the object
     fn get_sprite(&self) -> &Sprite;
     fn get_transform(&self) -> &Transform;
+    /// Update is a trait that is implemented by objects that need to be updated every frame
     fn update(&mut self) {}
 }
 
