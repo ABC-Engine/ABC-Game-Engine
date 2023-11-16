@@ -1,7 +1,8 @@
 // this highlights some major issues with the current renderer
+use console_renderer::*;
 use std::{thread, time, time::Instant};
-use Console_Renderer::*;
 
+// for an actual game, it might be advantageous to declare each of these objects in their own files
 struct BouncingBall {
     transform: Transform,
     sprite: Sprite,
@@ -9,23 +10,15 @@ struct BouncingBall {
     y_velocity: f64,
 }
 
-struct PlagueMask {
-    transform: Transform,
-    sprite: Sprite,
-}
-
-struct RotatingRectangle {
-    transform: Transform,
-    sprite: Sprite,
-}
-
-impl Update for RotatingRectangle {
-    fn update(&mut self) {
-        self.transform.rotation += 1.0;
+impl Object for BouncingBall {
+    fn get_sprite(&self) -> &Sprite {
+        &self.sprite
     }
-}
 
-impl Update for BouncingBall {
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+
     fn update(&mut self) {
         self.y_velocity += 0.1;
 
@@ -49,30 +42,11 @@ impl Update for BouncingBall {
     }
 }
 
-impl Object for BouncingBall {
-    fn get_sprite(&self) -> &Sprite {
-        &self.sprite
-    }
-
-    fn get_transform(&self) -> &Transform {
-        &self.transform
-    }
-}
-impl Object for RotatingRectangle {
-    fn get_sprite(&self) -> &Sprite {
-        &self.sprite
-    }
-
-    fn get_transform(&self) -> &Transform {
-        &self.transform
-    }
+struct PlagueMask {
+    transform: Transform,
+    sprite: Sprite,
 }
 
-impl Update for PlagueMask {
-    fn update(&mut self) {
-        self.transform.rotation += 1.0;
-    }
-}
 impl Object for PlagueMask {
     fn get_sprite(&self) -> &Sprite {
         &self.sprite
@@ -81,6 +55,29 @@ impl Object for PlagueMask {
     fn get_transform(&self) -> &Transform {
         &self.transform
     }
+
+    fn update(&mut self) {
+        self.transform.rotation += 1.0;
+    }
+}
+
+struct RotatingRectangle {
+    transform: Transform,
+    sprite: Sprite,
+}
+
+impl Object for RotatingRectangle {
+    fn get_sprite(&self) -> &Sprite {
+        &self.sprite
+    }
+
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+
+    fn update(&mut self) {
+        self.transform.rotation += 1.0;
+    }
 }
 
 const WINDOW_DIMS: (u32, u32) = (80, 40);
@@ -88,7 +85,7 @@ const CIRCLE_RADIUS: f64 = 5.0;
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
-    let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+    let renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
     let mut scene = Scene::new();
     scene.set_background_color(Color {
         r: 100,

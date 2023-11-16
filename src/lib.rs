@@ -38,10 +38,13 @@ pub trait Update {
     fn update(&mut self) {}
 }
 
+//impl<Object> Update for Object {}
+
 /// Object is a trait that is implemented by objects that can be rendered
-pub trait Object: Update {
+pub trait Object {
     fn get_sprite(&self) -> &Sprite;
     fn get_transform(&self) -> &Transform;
+    fn update(&mut self) {}
 }
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
@@ -116,6 +119,7 @@ impl Renderer {
     ///  calls the update method on all objects in the scene and then renders the scene
     pub fn render(&self, scene: &mut Scene) {
         for object in &mut scene.objects {
+            // if the object has the update trait
             object.update();
         }
         let mut pixel_grid =

@@ -3,15 +3,6 @@
 version = 3
 
 [[package]]
-name = "Console-Renderer"
-version = "0.1.0"
-dependencies = [
- "colored",
- "crossterm",
- "image",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -74,6 +65,15 @@ dependencies = [
  "is-terminal",
  "lazy_static",
  "windows-sys",
+]
+
+[[package]]
+name = "console_renderer"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "crossterm",
+ "image",
 ]
 
 [[package]]
