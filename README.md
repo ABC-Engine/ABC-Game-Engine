@@ -7,14 +7,14 @@ Note: This is subject to change, these docs could be outdated. Just bug me and I
 ## Making an object
 First make a struct for your object
 ``` rust
-struct Circle {
+struct Ball {
     transform: Transform,
     sprite: Sprite,
 }
 ```
 Every object needs the Object trait implemented
 ``` rust
-impl Object for BouncingBall {
+impl Object for Ball {
     fn get_sprite(&self) -> &Sprite {
         &self.sprite
     }
@@ -27,7 +27,7 @@ impl Object for BouncingBall {
 Every object also needs the update function (this will be called every frame)
 For this example, we aren't going to use it so we will keep it empty
 ``` rust
-impl Update for BouncingBall {
+impl Update for Ball {
     fn update(&mut self) {}
 }
 ```
@@ -46,7 +46,7 @@ let circle_sprite = Circle {
 ```
 now we instantiate the struct we made for our object
 ``` rust
-let circle_object = Circle {
+let circle_object = Ball {
     transform: Transform {
         x: 10.0,
         y: 20.0,
