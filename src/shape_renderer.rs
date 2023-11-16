@@ -5,7 +5,7 @@ pub fn render_circle(
     circle: &Circle,
     transform: &Transform,
     pixel_grid: &mut Vec<Vec<Color>>,
-    stretch: &f32,
+    stretch: f32,
 ) {
     if circle.color.a == 0.0 {
         return;
@@ -34,7 +34,7 @@ pub fn render_rectangle(
     rectangle: &Rectangle,
     transform: &Transform,
     pixel_grid: &mut Vec<Vec<Color>>,
-    stretch: &f32,
+    stretch: f32,
 ) {
     if rectangle.color.a == 0.0 {
         return;
@@ -74,14 +74,19 @@ pub struct Texture {
     pub pixels: Vec<Vec<Color>>, // not sure how inefficient this is but it will do for now
 }
 
-pub fn render_texture(texture: &Texture, transform: &Transform, pixel_grid: &mut Vec<Vec<Color>>) {
+pub fn render_texture(
+    texture: &Texture,
+    transform: &Transform,
+    pixel_grid: &mut Vec<Vec<Color>>,
+    stretch: f32,
+) {
     let (texture_width, texture_height) = (texture.pixels[0].len(), texture.pixels.len());
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
             let out_pixel = &mut pixel_grid[y][x];
 
             let mut adjusted_x = x as f32;
-            let mut adjusted_y = y as f32;
+            let mut adjusted_y = y as f32 * stretch;
 
             if transform.rotation != 0.0 {
                 (adjusted_x, adjusted_y) = rotate_point_around(

@@ -42,6 +42,8 @@ pub trait Update {
 
 /// Object is a trait that is implemented by objects that can be rendered
 pub trait Object {
+    // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
+    // So that it default accesses the transform and sprite variables of the object
     fn get_sprite(&self) -> &Sprite;
     fn get_transform(&self) -> &Transform;
     fn update(&mut self) {}
@@ -132,17 +134,20 @@ impl Renderer {
                     &circle,
                     &object.get_transform(),
                     &mut pixel_grid,
-                    &self.stretch,
+                    self.stretch,
                 ),
                 Sprite::Rectangle(rectangle) => render_rectangle(
                     &rectangle,
                     &object.get_transform(),
                     &mut pixel_grid,
-                    &self.stretch,
+                    self.stretch,
                 ),
-                Sprite::Image(image) => {
-                    render_texture(&image.texture, &object.get_transform(), &mut pixel_grid)
-                }
+                Sprite::Image(image) => render_texture(
+                    &image.texture,
+                    &object.get_transform(),
+                    &mut pixel_grid,
+                    self.stretch,
+                ),
             }
         }
         self.render_pixel_grid(pixel_grid);

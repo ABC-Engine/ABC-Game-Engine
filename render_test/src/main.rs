@@ -105,7 +105,7 @@ fn main() {
     };
 
     let plague_mask = Image {
-        texture: load_texture("Sample_Images/Icon10_01.png", 2.3),
+        texture: load_texture("Sample_Images/Icon10_01.png"),
     };
 
     let rectangle = Rectangle {
