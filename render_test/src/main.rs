@@ -136,7 +136,7 @@ fn main() {
             x: 20.0,
             y: 20.0,
             rotation: 0.0,
-            scale: 1.0,
+            scale: 2.0,
         },
         sprite: plague_mask.into(),
     };

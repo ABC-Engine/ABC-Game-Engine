@@ -14,12 +14,16 @@ pub fn render_circle(
     let squared_radius = circle.radius.powi(2);
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
-            let pixel = &mut pixel_grid[y][x];
-            let adjusted_x = x as f32 / stretch;
+            let adjusted_x = (x as f32 / stretch) / transform.scale;
+            let adjusted_y = y as f32 / transform.scale;
+
             let dx = adjusted_x as f64 - transform.x;
-            let dy = y as f64 - transform.y;
+            let dy = adjusted_y as f64 - transform.y;
+
             let distance_squared = dx.powi(2) + dy.powi(2);
             if distance_squared <= squared_radius {
+                let pixel = &mut pixel_grid[y][x];
+
                 if circle.color.a == 1.0 {
                     *pixel = circle.color;
                 } else {
@@ -41,9 +45,8 @@ pub fn render_rectangle(
     }
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
-            let pixel = &mut pixel_grid[y][x];
-            let mut adjusted_y = y as f32;
-            let mut adjusted_x = x as f32 / stretch;
+            let mut adjusted_x = (x as f32 / stretch) / transform.scale;
+            let mut adjusted_y = y as f32 / transform.scale;
 
             if transform.rotation != 0.0 {
                 (adjusted_x, adjusted_y) = rotate_point_around(
@@ -60,6 +63,8 @@ pub fn render_rectangle(
                 && adjusted_y as f64 >= transform.y - rectangle.height / 2.0
                 && adjusted_y as f64 <= transform.y + rectangle.height / 2.0
             {
+                let pixel = &mut pixel_grid[y][x];
+
                 if rectangle.color.a == 1.0 {
                     *pixel = rectangle.color;
                 } else {
@@ -83,10 +88,8 @@ pub fn render_texture(
     let (texture_width, texture_height) = (texture.pixels[0].len(), texture.pixels.len());
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
-            let out_pixel = &mut pixel_grid[y][x];
-
-            let mut adjusted_x = x as f32;
-            let mut adjusted_y = y as f32 * stretch;
+            let mut adjusted_x = x as f32 / transform.scale;
+            let mut adjusted_y = (y as f32 * stretch) / transform.scale;
 
             if transform.rotation != 0.0 {
                 (adjusted_x, adjusted_y) = rotate_point_around(
@@ -107,6 +110,8 @@ pub fn render_texture(
                 && relative_y >= -(texture_height as f64 / 2.0)
                 && relative_y <= texture_height as f64 / 2.0
             {
+                let out_pixel = &mut pixel_grid[y][x];
+
                 let texture_pixel = &texture.pixels
                     [((relative_y + texture_height as f64 / 2.0) as usize).min(texture_height - 1)]
                     [((relative_x + texture_width as f64 / 2.0) as usize).min(texture_width - 1)];

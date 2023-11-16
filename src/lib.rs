@@ -48,7 +48,7 @@ pub struct Transform {
     pub x: f64,
     pub y: f64,
     pub rotation: f64,
-    pub scale: f64,
+    pub scale: f32,
 }
 
 /// Sprite is an enum that can be either a circle or a rectangle
