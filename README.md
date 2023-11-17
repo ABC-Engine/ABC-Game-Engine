@@ -62,7 +62,7 @@ fn main()
     
     //And a renderer to render it in
     
-    let mut renderer = Renderer::new(80, 40);
+    let renderer = Renderer::new(80, 40);
     
     //now we can add the object to our scene
     //Note: The order in which they are added is the order they will be rendered in
