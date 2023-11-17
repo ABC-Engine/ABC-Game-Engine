@@ -7,4 +7,5 @@ edition = "2021"
 colored = "2.0.4"
 crossterm = "0.27.0"
 image = "0.24.7"
+rand = "0.8.5"
 

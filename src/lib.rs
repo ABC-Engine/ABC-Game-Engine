@@ -6,6 +6,7 @@ mod shape_renderer;
 pub use shape_renderer::*;
 mod load_texture;
 pub use load_texture::*;
+use rand::Rng;
 use std::io::Write;
 
 #[derive(Clone, Copy, Debug)]
@@ -87,6 +88,7 @@ pub struct Renderer {
 pub struct Scene {
     pub objects: Vec<Box<dyn Object>>,
     pub background_color: Color,
+    pub is_random_chars: bool,
 }
 
 impl Scene {
@@ -99,6 +101,7 @@ impl Scene {
                 b: 0,
                 a: 1.0,
             },
+            is_random_chars: false,
         }
     }
 
@@ -108,6 +111,10 @@ impl Scene {
 
     pub fn add_object(&mut self, object: impl Object + 'static) {
         self.objects.push(Box::new(object));
+    }
+
+    pub fn set_random_chars(&mut self, is_random_chars: bool) {
+        self.is_random_chars = is_random_chars;
     }
 }
 
@@ -144,14 +151,14 @@ impl Renderer {
                 ),
             }
         }
-        self.render_pixel_grid(pixel_grid);
+        self.render_pixel_grid(pixel_grid, scene);
     }
 
     pub fn set_stretch(&mut self, stretch: f32) {
         self.stretch = stretch;
     }
 
-    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>) {
+    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
         write!(stdout, "{}", cursor::Hide).unwrap();
         write!(
@@ -162,6 +169,7 @@ impl Renderer {
         .unwrap();
         write!(stdout, "{}", cursor::MoveTo(0, 0)).unwrap();
 
+        let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
                 // doesn't work because it doesnt delete the previous character
@@ -170,7 +178,19 @@ impl Renderer {
                 if pixel.a == 0.0 {
                     write!(stdout, "{}", " ").unwrap();
                 } else {
-                    write!(stdout, "{}", "=".truecolor(pixel.r, pixel.g, pixel.b)).unwrap();
+                    if scene.is_random_chars {
+                        pixel_character +=
+                            &char::from(rand::thread_rng().gen_range(33..126)).to_string();
+                    } else {
+                        pixel_character += &"=".to_string();
+                    }
+                    write!(
+                        stdout,
+                        "{}",
+                        pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
+                    )
+                    .unwrap();
+                    pixel_character.clear();
                 }
             }
             write!(stdout, "\n").unwrap();

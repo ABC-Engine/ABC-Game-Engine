@@ -93,6 +93,7 @@ fn main() {
         b: 0,
         a: 1.0,
     });
+    scene.set_random_chars(true);
 
     let circle = Circle {
         radius: CIRCLE_RADIUS,
