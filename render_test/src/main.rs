@@ -57,7 +57,7 @@ impl Object for PlagueMask {
     }
 
     fn update(&mut self) {
-        self.transform.rotation += 1.0;
+        self.transform.rotation += 5.0;
     }
 }
 
@@ -91,9 +91,10 @@ fn main() {
         r: 100,
         g: 0,
         b: 0,
-        a: 1.0,
+        a: 0.0,
     });
-    scene.set_random_chars(true);
+    //scene.set_random_chars(true);
+    scene.set_character('@');
 
     let circle = Circle {
         radius: CIRCLE_RADIUS,

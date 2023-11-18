@@ -89,6 +89,7 @@ pub struct Scene {
     pub objects: Vec<Box<dyn Object>>,
     pub background_color: Color,
     pub is_random_chars: bool,
+    pub character: char,
 }
 
 impl Scene {
@@ -102,19 +103,28 @@ impl Scene {
                 a: 1.0,
             },
             is_random_chars: false,
+            character: '=',
         }
     }
 
+    /// if alpha is 0, then the background is spaces
     pub fn set_background_color(&mut self, color: Color) {
         self.background_color = color;
     }
 
+    /// adds an object on top of the other objects
     pub fn add_object(&mut self, object: impl Object + 'static) {
         self.objects.push(Box::new(object));
     }
 
+    /// makes the characters that are rendered random
     pub fn set_random_chars(&mut self, is_random_chars: bool) {
         self.is_random_chars = is_random_chars;
+    }
+
+    /// sets the character that will be rendered for each pixel --only works if is_random_chars is false
+    pub fn set_character(&mut self, character: char) {
+        self.character = character;
     }
 }
 
@@ -160,40 +170,38 @@ impl Renderer {
 
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
-        write!(stdout, "{}", cursor::Hide).unwrap();
-        write!(
+        crossterm::queue!(stdout, cursor::Hide,).unwrap();
+        crossterm::queue!(stdout, cursor::MoveTo(0, 0),).unwrap();
+        crossterm::queue!(
             stdout,
-            "{}",
-            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
         .unwrap();
-        write!(stdout, "{}", cursor::MoveTo(0, 0)).unwrap();
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
-                // doesn't work because it doesnt delete the previous character
-                //write!(stdout, "{}", cursor::MoveTo(x as u16, y as u16)).unwrap();
+                crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),).unwrap();
 
                 if pixel.a == 0.0 {
-                    write!(stdout, "{}", " ").unwrap();
+                    write!(stdout, "{}\x08", " ").unwrap();
                 } else {
                     if scene.is_random_chars {
                         pixel_character +=
                             &char::from(rand::thread_rng().gen_range(33..126)).to_string();
                     } else {
-                        pixel_character += &"=".to_string();
+                        pixel_character += &scene.character.to_string();
                     }
+
                     write!(
                         stdout,
-                        "{}",
+                        "{}\x08",
                         pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
                     )
                     .unwrap();
                     pixel_character.clear();
                 }
             }
-            write!(stdout, "\n").unwrap();
         }
         stdout.flush().unwrap();
     }

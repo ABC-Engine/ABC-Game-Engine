@@ -126,7 +126,7 @@ pub fn render_texture(
     }
 }
 
-fn overlay_colors(color1: &Color, color2: &Color) -> Color {
+fn overlay_colors(back_color: &Color, front_color: &Color) -> Color {
     // there has to be a better way to do this but I'm not sure how...
     let mut return_color = Color {
         r: 0,
@@ -134,13 +134,13 @@ fn overlay_colors(color1: &Color, color2: &Color) -> Color {
         b: 0,
         a: 1.0,
     };
-    return_color.r = (color1.r as f32 * (1.0 - color2.a) as f32) as u8;
-    return_color.r += (color2.r as f32 * color2.a) as u8;
-    return_color.g = (color1.g as f32 * (1.0 - color2.a) as f32) as u8;
-    return_color.g += (color2.g as f32 * color2.a) as u8;
-    return_color.b = (color1.b as f32 * (1.0 - color2.a) as f32) as u8;
-    return_color.b += (color2.b as f32 * color2.a) as u8;
-    return_color.a = 1.0;
+    return_color.r = (back_color.r as f32 * (1.0 - front_color.a) as f32) as u8;
+    return_color.r += (front_color.r as f32 * front_color.a) as u8;
+    return_color.g = (back_color.g as f32 * (1.0 - front_color.a) as f32) as u8;
+    return_color.g += (front_color.g as f32 * front_color.a) as u8;
+    return_color.b = (back_color.b as f32 * (1.0 - front_color.a) as f32) as u8;
+    return_color.b += (front_color.b as f32 * front_color.a) as u8;
+    return_color.a = back_color.a + front_color.a * (1.0 - back_color.a);
     return_color
 }
 
