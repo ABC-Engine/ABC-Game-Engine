@@ -77,13 +77,6 @@ impl From<Image> for Sprite {
     }
 }
 
-/// Renderer is responsible for rendering the scene
-pub struct Renderer {
-    width: u32,
-    height: u32,
-    stretch: f32,
-}
-
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
     pub objects: Vec<Box<dyn Object>>,
@@ -128,7 +121,35 @@ impl Scene {
     }
 }
 
+/// Renderer is responsible for rendering the scene
+pub struct Renderer {
+    width: u32,
+    height: u32,
+    stretch: f32,
+}
+
 impl Renderer {
+    pub fn new(width: u32, height: u32) -> Renderer {
+        let mut stdout = std::io::stdout().lock();
+        crossterm::queue!(
+            stdout,
+            cursor::Hide,
+            crossterm::terminal::SetSize(width as u16 * 2, height as u16 * 2),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+        )
+        .unwrap();
+
+        Renderer {
+            width,
+            height,
+            stretch: 2.3,
+        }
+    }
+
+    pub fn set_stretch(&mut self, stretch: f32) {
+        self.stretch = stretch;
+    }
+
     ///  calls the update method on all objects in the scene and then renders the scene
     pub fn render(&self, scene: &mut Scene) {
         for object in &mut scene.objects {
@@ -164,25 +185,21 @@ impl Renderer {
         self.render_pixel_grid(pixel_grid, scene);
     }
 
-    pub fn set_stretch(&mut self, stretch: f32) {
-        self.stretch = stretch;
-    }
-
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
-        crossterm::queue!(stdout, cursor::Hide,).unwrap();
-        crossterm::queue!(stdout, cursor::MoveTo(0, 0),).unwrap();
-        crossterm::queue!(
+        crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0)).unwrap();
+        //crossterm::queue!(stdout, ,).unwrap();
+        /*crossterm::queue!(
             stdout,
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
-        .unwrap();
+        .unwrap();*/
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
                 crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),).unwrap();
-
+                // \x08 is backspace
                 if pixel.a == 0.0 {
                     write!(stdout, "{}\x08", " ").unwrap();
                 } else {
@@ -204,13 +221,5 @@ impl Renderer {
             }
         }
         stdout.flush().unwrap();
-    }
-
-    pub fn new(width: u32, height: u32) -> Renderer {
-        Renderer {
-            width,
-            height,
-            stretch: 2.3,
-        }
     }
 }

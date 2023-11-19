@@ -94,7 +94,7 @@ fn main() {
         a: 0.0,
     });
     //scene.set_random_chars(true);
-    scene.set_character('@');
+    scene.set_character('M');
 
     let circle = Circle {
         radius: CIRCLE_RADIUS,
@@ -138,7 +138,7 @@ fn main() {
             x: 20.0,
             y: 20.0,
             rotation: 0.0,
-            scale: 2.0,
+            scale: 1.0,
         },
         sprite: plague_mask.into(),
     };
