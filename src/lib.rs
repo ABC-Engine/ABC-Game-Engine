@@ -37,6 +37,7 @@ pub struct Image {
 /// Object is a trait that is implemented by objects that can be rendered
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
+    fn get_name(&self) -> &String;
     // So that it default accesses the transform and sprite variables of the object
     fn get_sprite(&self) -> &Sprite;
     fn get_transform(&self) -> &Transform;
@@ -119,6 +120,31 @@ impl Scene {
     pub fn set_character(&mut self, character: char) {
         self.character = character;
     }
+
+    pub fn find_object(&mut self, object: String) -> Option<&mut dyn Object> {
+        for (index, object_in_scene) in self.objects.iter().enumerate() {
+            if *object_in_scene.get_name() == object {
+                return Some(&mut *self.objects[index]);
+            }
+        }
+        None
+    }
+
+    pub fn remove_object(&mut self, object: String) -> bool {
+        for (index, object_in_scene) in self.objects.iter().enumerate() {
+            if *object_in_scene.get_name() == object {
+                self.objects.remove(index);
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn update_objects(&mut self) {
+        for object in &mut self.objects {
+            object.update();
+        }
+    }
 }
 
 /// Renderer is responsible for rendering the scene
@@ -152,10 +178,8 @@ impl Renderer {
 
     ///  calls the update method on all objects in the scene and then renders the scene
     pub fn render(&self, scene: &mut Scene) {
-        for object in &mut scene.objects {
-            // if the object has the update trait
-            object.update();
-        }
+        scene.update_objects();
+
         let mut pixel_grid =
             vec![vec![scene.background_color; self.width as usize]; self.height as usize];
         // could possible be done multithreaded and combine layers afterward
@@ -188,12 +212,6 @@ impl Renderer {
     fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
         crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0)).unwrap();
-        //crossterm::queue!(stdout, ,).unwrap();
-        /*crossterm::queue!(
-            stdout,
-            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
-        )
-        .unwrap();*/
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {

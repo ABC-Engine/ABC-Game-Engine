@@ -112,9 +112,14 @@ pub fn render_texture(
             {
                 let out_pixel = &mut pixel_grid[y][x];
 
-                let texture_pixel = &texture.pixels
-                    [((relative_y + texture_height as f64 / 2.0) as usize).min(texture_height - 1)]
-                    [((relative_x + texture_width as f64 / 2.0) as usize).min(texture_width - 1)];
+                let texture_y_coord = ((relative_y + texture_height as f64 / 2.0) as usize);
+                let texture_x_coord = ((relative_x + texture_width as f64 / 2.0) as usize);
+
+                if (texture_x_coord >= texture_height || texture_y_coord >= texture_width) {
+                    continue;
+                }
+
+                let texture_pixel = &texture.pixels[texture_y_coord][texture_x_coord];
 
                 if texture_pixel.a == 1.0 {
                     *out_pixel = *texture_pixel;

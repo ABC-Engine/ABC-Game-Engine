@@ -1,5 +1,6 @@
 {
     "rust-analyzer.linkedProjects": [
-        ".\\render_test\\Cargo.toml"
+        ".\\render_test\\Cargo.toml",
+        ".\\examples\\tetris\\Cargo.toml"
     ]
 }
