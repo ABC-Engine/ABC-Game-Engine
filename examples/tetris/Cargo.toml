@@ -8,3 +8,4 @@ edition = "2021"
 
 [dependencies]
 console_renderer = { path = "../../../console_renderer" }
+rand = "0.8.5"

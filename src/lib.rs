@@ -5,9 +5,13 @@ use crossterm::cursor;
 mod shape_renderer;
 pub use shape_renderer::*;
 mod load_texture;
+use core::ops::Add;
 pub use load_texture::*;
 use rand::Rng;
-use std::io::Write;
+use std::{
+    clone,
+    io::{stderr, Write},
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Color {
@@ -38,9 +42,13 @@ pub struct Image {
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
     fn get_name(&self) -> &String;
+    fn set_name(&mut self, name: String) {}
     // So that it default accesses the transform and sprite variables of the object
     fn get_sprite(&self) -> &Sprite;
     fn get_transform(&self) -> &Transform;
+    fn get_children(&self) -> &[Box<dyn Object>] {
+        &[]
+    }
     /// Update is a trait that is implemented by objects that need to be updated every frame
     fn update(&mut self) {}
 }
@@ -51,6 +59,30 @@ pub struct Transform {
     pub y: f64,
     pub rotation: f64,
     pub scale: f32,
+}
+
+impl Transform {
+    pub fn default() -> Transform {
+        Transform {
+            x: 0.0,
+            y: 0.0,
+            rotation: 0.0,
+            scale: 1.0,
+        }
+    }
+}
+
+impl<'a, 'b> Add<&'b Transform> for &'a Transform {
+    type Output = Transform;
+
+    fn add(self, other: &'b Transform) -> Transform {
+        Transform {
+            x: self.x + other.x,
+            y: self.y + other.y,
+            rotation: self.rotation + other.rotation,
+            scale: self.scale * other.scale,
+        }
+    }
 }
 
 /// Sprite is an enum that can be either a circle or a rectangle
@@ -107,7 +139,27 @@ impl Scene {
     }
 
     /// adds an object on top of the other objects
-    pub fn add_object(&mut self, object: impl Object + 'static) {
+    pub fn add_object(&mut self, mut object: impl Object + 'static) {
+        let mut clone_number = 0;
+        while self
+            .find_object(format!("{}({})", object.get_name(), clone_number))
+            .is_some()
+        {
+            clone_number += 1;
+        }
+
+        if clone_number > 0 {
+            let new_name = format!("{}({})", object.get_name(), clone_number);
+            object.set_name(format!("({})", clone_number));
+            if *object.get_name() != new_name {
+                stderr().write(
+                    format!("Error: if object is clonable set_name must be implemented",)
+                        .as_bytes(),
+                );
+                panic!("Object name was already taken")
+            }
+        }
+
         self.objects.push(Box::new(object));
     }
 
@@ -182,34 +234,48 @@ impl Renderer {
 
         let mut pixel_grid =
             vec![vec![scene.background_color; self.width as usize]; self.height as usize];
+
+        self.render_objects(&scene.objects, &mut pixel_grid, Transform::default());
+        self.render_pixel_grid(&pixel_grid, scene);
+    }
+
+    fn render_objects(
+        &self,
+        objects: &[Box<dyn Object>],
+        pixel_grid: &mut Vec<Vec<Color>>,
+        transform_offset: Transform,
+    ) {
         // could possible be done multithreaded and combine layers afterward
-        for object in &scene.objects {
+        for object in objects {
             // check if object is circle or rectangle
             match object.get_sprite() {
-                Sprite::Circle(circle) => render_circle(
-                    &circle,
-                    &object.get_transform(),
-                    &mut pixel_grid,
-                    self.stretch,
-                ),
+                Sprite::Circle(circle) => {
+                    render_circle(&circle, &object.get_transform(), pixel_grid, self.stretch)
+                }
                 Sprite::Rectangle(rectangle) => render_rectangle(
                     &rectangle,
                     &object.get_transform(),
-                    &mut pixel_grid,
+                    pixel_grid,
                     self.stretch,
                 ),
                 Sprite::Image(image) => render_texture(
                     &image.texture,
                     &object.get_transform(),
-                    &mut pixel_grid,
+                    pixel_grid,
                     self.stretch,
                 ),
             }
+            if object.get_children().len() > 0 {
+                self.render_objects(
+                    object.get_children(),
+                    pixel_grid,
+                    object.get_transform() + &transform_offset,
+                );
+            }
         }
-        self.render_pixel_grid(pixel_grid, scene);
     }
 
-    fn render_pixel_grid(&self, pixel_grid: Vec<Vec<Color>>, scene: &Scene) {
+    fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
         crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0)).unwrap();
 

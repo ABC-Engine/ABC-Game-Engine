@@ -571,6 +571,7 @@ name = "tetris"
 version = "0.1.0"
 dependencies = [
  "console_renderer",
+ "rand",
 ]
 
 [[package]]
