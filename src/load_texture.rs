@@ -4,7 +4,7 @@ use std::path::Path;
 
 /// Load a texture from a file, stretch
 pub fn load_texture(path: &str) -> Texture {
-    let image = image::open(&Path::new(path)).unwrap();
+    let image = image::open(&Path::new(path)).expect("Error: failed to open image");
     let (width, height) = image.dimensions();
 
     let mut new_texture = Texture {

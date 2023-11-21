@@ -2,10 +2,13 @@
 
 use colored::Colorize;
 use crossterm::cursor;
+mod input;
 mod shape_renderer;
 pub use shape_renderer::*;
 mod load_texture;
 use core::ops::Add;
+pub use crossterm::event::KeyCode;
+pub use input::*;
 pub use load_texture::*;
 use rand::Rng;
 use std::{
@@ -38,13 +41,17 @@ pub struct Image {
     pub texture: Texture,
 }
 
+pub struct NoSprite;
+
 /// Object is a trait that is implemented by objects that can be rendered
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
     fn get_name(&self) -> &String;
     fn set_name(&mut self, name: String) {}
     // So that it default accesses the transform and sprite variables of the object
-    fn get_sprite(&self) -> &Sprite;
+    fn get_sprite(&self) -> &Sprite {
+        &Sprite::NoSprite(NoSprite)
+    }
     fn get_transform(&self) -> &Transform;
     fn get_children(&self) -> &[Box<dyn Object>] {
         &[]
@@ -90,6 +97,7 @@ pub enum Sprite {
     Circle(Circle),
     Rectangle(Rectangle),
     Image(Image),
+    NoSprite(NoSprite),
 }
 
 impl From<Circle> for Sprite {
@@ -107,6 +115,12 @@ impl From<Rectangle> for Sprite {
 impl From<Image> for Sprite {
     fn from(image: Image) -> Self {
         Sprite::Image(image)
+    }
+}
+
+impl From<NoSprite> for Sprite {
+    fn from(no_sprite: NoSprite) -> Self {
+        Sprite::NoSprite(no_sprite)
     }
 }
 
@@ -215,7 +229,7 @@ impl Renderer {
             crossterm::terminal::SetSize(width as u16 * 2, height as u16 * 2),
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
-        .unwrap();
+        .expect("Error: failed to set terminal size");
 
         Renderer {
             width,
@@ -249,21 +263,25 @@ impl Renderer {
         for object in objects {
             // check if object is circle or rectangle
             match object.get_sprite() {
-                Sprite::Circle(circle) => {
-                    render_circle(&circle, &object.get_transform(), pixel_grid, self.stretch)
-                }
+                Sprite::Circle(circle) => render_circle(
+                    &circle,
+                    &(object.get_transform() + &transform_offset),
+                    pixel_grid,
+                    self.stretch,
+                ),
                 Sprite::Rectangle(rectangle) => render_rectangle(
                     &rectangle,
-                    &object.get_transform(),
+                    &(object.get_transform() + &transform_offset),
                     pixel_grid,
                     self.stretch,
                 ),
                 Sprite::Image(image) => render_texture(
                     &image.texture,
-                    &object.get_transform(),
+                    &(object.get_transform() + &transform_offset),
                     pixel_grid,
                     self.stretch,
                 ),
+                Sprite::NoSprite(NoSprite) => {}
             }
             if object.get_children().len() > 0 {
                 self.render_objects(
@@ -277,15 +295,17 @@ impl Renderer {
 
     fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
-        crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0)).unwrap();
+        crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0))
+            .expect("Error: failed to move cursor to 0, 0");
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
-                crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),).unwrap();
+                crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),)
+                    .expect("Failed to move cursor");
                 // \x08 is backspace
                 if pixel.a == 0.0 {
-                    write!(stdout, "{}\x08", " ").unwrap();
+                    write!(stdout, "{}\x08", " ").expect("failed to write white space");
                 } else {
                     if scene.is_random_chars {
                         pixel_character +=
@@ -299,11 +319,11 @@ impl Renderer {
                         "{}\x08",
                         pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
                     )
-                    .unwrap();
+                    .expect("failed to write pixel");
                     pixel_character.clear();
                 }
             }
         }
-        stdout.flush().unwrap();
+        stdout.flush().expect("failed to flush stdout");
     }
 }

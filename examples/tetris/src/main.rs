@@ -3,6 +3,7 @@
 use console_renderer::*;
 use rand::Rng;
 use std::cell::RefCell;
+use std::io::stdin;
 use std::rc::Rc;
 use std::time::Instant;
 
@@ -101,12 +102,42 @@ struct PieceSquare {
     name: String,
 }
 
+impl Object for PieceSquare {
+    fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+
+    fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    fn get_sprite(&self) -> &Sprite {
+        &self.sprite
+    }
+
+    fn get_transform(&self) -> &Transform {
+        &self.transform
+    }
+
+    fn get_children(&self) -> &[Box<dyn Object>] {
+        &[]
+    }
+
+    fn update(&mut self) {}
+}
+
 struct PieceObject {
     transform: Transform,
     sprite: Sprite,
     name: String,
     scene: Rc<RefCell<Scene>>,
     children: Vec<Box<dyn Object>>,
+    is_placed: bool,
+    spawn_instant: Instant,
+    last_drop_time_ms: u128,
+    time_between_drops_ms: u128,
+    last_horizontal_move_time_ms: u128,
+    time_between_horizontal_moves_ms: u128,
 }
 
 impl Object for PieceObject {
@@ -131,8 +162,34 @@ impl Object for PieceObject {
     }
 
     fn update(&mut self) {
-        if self.transform.y < 77.0 {
-            self.transform.y += 0.1;
+        if self.transform.y < 77.0
+            && (self.spawn_instant.elapsed().as_millis()
+                > self.last_drop_time_ms + self.time_between_drops_ms)
+        {
+            self.transform.y += 4.0;
+            self.last_drop_time_ms = self.spawn_instant.elapsed().as_millis();
+        } else {
+            self.is_placed = true;
+        }
+
+        //handle horizontal movement using crossterm events
+        let key = get_input();
+        if key == Option::Some(KeyCode::Char('a')) {
+            if self.transform.x > 2.0
+                && self.spawn_instant.elapsed().as_millis()
+                    > self.last_horizontal_move_time_ms + self.time_between_horizontal_moves_ms
+            {
+                self.transform.x -= 4.0;
+                self.last_horizontal_move_time_ms = self.spawn_instant.elapsed().as_millis();
+            }
+        } else if key == Option::Some(KeyCode::Char('d')) {
+            if self.transform.x < 36.0
+                && self.spawn_instant.elapsed().as_millis()
+                    > self.last_horizontal_move_time_ms + self.time_between_horizontal_moves_ms
+            {
+                self.transform.x += 4.0;
+                self.last_horizontal_move_time_ms = self.spawn_instant.elapsed().as_millis();
+            }
         }
     }
 }
@@ -158,21 +215,46 @@ fn new_random_piece(scene: Rc<RefCell<Scene>>) -> impl Object {
 }
 
 fn new_piece(piece: Piece, scene: Rc<RefCell<Scene>>) -> impl Object {
-    PieceObject {
+    let mut new_piece = PieceObject {
         transform: Transform {
             x: 2.0,
-            y: 20.0,
+            y: 2.0,
             rotation: 0.0,
             scale: 1.0,
         },
-        sprite: Image {
-            texture: load_texture(format!("sprites/{}", piece.filename).as_str()),
-        }
-        .into(),
+        sprite: Sprite::NoSprite(NoSprite),
         name: piece.name.to_string(),
         scene: scene.clone(),
         children: Vec::new(),
+        is_placed: false,
+        spawn_instant: Instant::now(),
+        last_drop_time_ms: 0,
+        time_between_drops_ms: 500,
+        last_horizontal_move_time_ms: 0,
+        time_between_horizontal_moves_ms: 200,
+    };
+
+    for x in 0..4 {
+        for y in 0..4 {
+            if piece.arrangement[y][x] {
+                let mut square = PieceSquare {
+                    transform: Transform {
+                        x: x as f64 * 4.0,
+                        y: y as f64 * 4.0,
+                        rotation: 0.0,
+                        scale: 1.0,
+                    },
+                    sprite: Image {
+                        texture: load_texture(format!("sprites/{}", piece.filename).as_str()),
+                    }
+                    .into(),
+                    name: piece.name.to_string(),
+                };
+                new_piece.children.push(Box::new(square));
+            }
+        }
     }
+    return new_piece;
 }
 
 fn main() {
@@ -182,14 +264,18 @@ fn main() {
     let mut scene = Rc::new(RefCell::new(Scene::new()));
     scene.borrow_mut().background_color = Color {
         r: 255,
-        g: 255,
-        b: 255,
+        g: 0,
+        b: 0,
         a: 1.0,
     };
+
+    let mut piece = new_random_piece(scene.clone());
+    scene.borrow_mut().add_object(piece);
 
     let mut piece_grid = vec![vec![false; 20]; 10];
 
     loop {
+        //scene.borrow_mut().update_objects();
         renderer.render(&mut *scene.borrow_mut());
     }
 }
