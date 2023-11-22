@@ -44,6 +44,7 @@ pub struct Image {
 pub struct NoSprite;
 
 /// Object is a trait that is implemented by objects that can be rendered
+// clone
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
     fn get_name(&self) -> &String;
@@ -56,6 +57,7 @@ pub trait Object {
     fn get_children(&self) -> &[Box<dyn Object>] {
         &[]
     }
+    fn as_any(&self) -> &dyn std::any::Any;
     /// Update is a trait that is implemented by objects that need to be updated every frame
     fn update(&mut self) {}
 }
@@ -152,29 +154,33 @@ impl Scene {
         self.background_color = color;
     }
 
-    /// adds an object on top of the other objects
-    pub fn add_object(&mut self, mut object: impl Object + 'static) {
-        let mut clone_number = 0;
-        while self
-            .find_object(format!("{}({})", object.get_name(), clone_number))
-            .is_some()
-        {
-            clone_number += 1;
-        }
+    /// adds an object on top of the other objects returns the name of the object
+    pub fn add_object(&mut self, mut object: impl Object + 'static) -> String {
+        if self.find_object(object.get_name()).is_some() {
+            let mut clone_number = 0;
+            while self
+                .find_object(&format!("{}({})", object.get_name(), clone_number))
+                .is_some()
+            {
+                clone_number += 1;
+            }
 
-        if clone_number > 0 {
             let new_name = format!("{}({})", object.get_name(), clone_number);
-            object.set_name(format!("({})", clone_number));
+            object.set_name(new_name.clone());
             if *object.get_name() != new_name {
-                stderr().write(
-                    format!("Error: if object is clonable set_name must be implemented",)
-                        .as_bytes(),
-                );
+                stderr()
+                    .write(
+                        format!("Error: if object is clonable set_name must be implemented",)
+                            .as_bytes(),
+                    )
+                    .expect("failed to display error if this happens then idk what to tell you");
                 panic!("Object name was already taken")
             }
         }
 
+        let name = object.get_name().to_string();
         self.objects.push(Box::new(object));
+        name
     }
 
     /// makes the characters that are rendered random
@@ -187,18 +193,19 @@ impl Scene {
         self.character = character;
     }
 
-    pub fn find_object(&mut self, object: String) -> Option<&mut dyn Object> {
+    /// use sparingly, this is an O(n) operation
+    pub fn find_object(&mut self, object: &String) -> Option<&mut dyn Object> {
         for (index, object_in_scene) in self.objects.iter().enumerate() {
-            if *object_in_scene.get_name() == object {
+            if *object_in_scene.get_name() == *object {
                 return Some(&mut *self.objects[index]);
             }
         }
         None
     }
 
-    pub fn remove_object(&mut self, object: String) -> bool {
+    pub fn remove_object(&mut self, object: &String) -> bool {
         for (index, object_in_scene) in self.objects.iter().enumerate() {
-            if *object_in_scene.get_name() == object {
+            if *object_in_scene.get_name() == *object {
                 self.objects.remove(index);
                 return true;
             }
@@ -209,6 +216,9 @@ impl Scene {
     pub fn update_objects(&mut self) {
         for object in &mut self.objects {
             object.update();
+            if object.get_children().len() > 0 {
+                // TODO
+            }
         }
     }
 }
@@ -293,7 +303,7 @@ impl Renderer {
         }
     }
 
-    fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &Scene) {
+    pub fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &Scene) {
         let mut stdout = std::io::stdout().lock();
         crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");

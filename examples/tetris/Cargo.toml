@@ -9,4 +9,5 @@ edition = "2021"
 [dependencies]
 console_renderer = { path = "../../../console_renderer" }
 crossterm = "0.27.0"
+lazy_static = "1.4.0"
 rand = "0.8.5"

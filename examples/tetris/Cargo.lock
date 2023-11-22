@@ -572,6 +572,7 @@ version = "0.1.0"
 dependencies = [
  "console_renderer",
  "crossterm",
+ "lazy_static",
  "rand",
 ]
 
