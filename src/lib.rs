@@ -8,9 +8,14 @@ pub use shape_renderer::*;
 mod load_texture;
 use core::ops::Add;
 pub use crossterm::event::KeyCode;
+use dioxus_debug_cell::RefCell; // better debugging, acts normal in release mode
 pub use input::*;
 pub use load_texture::*;
 use rand::Rng;
+//use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::rc::Rc;
 use std::{
     clone,
     io::{stderr, Write},
@@ -24,11 +29,13 @@ pub struct Color {
     pub a: f32,
 }
 
+#[derive(Clone, Copy)]
 pub struct Circle {
     pub radius: f64,
     pub color: Color,
 }
 
+#[derive(Clone, Copy)]
 pub struct Rectangle {
     pub width: f64,
     pub height: f64,
@@ -36,15 +43,16 @@ pub struct Rectangle {
 }
 
 // rectangle with texture
+#[derive(Clone)]
 pub struct Image {
     // height and width are in texture
     pub texture: Texture,
 }
 
+#[derive(Clone, Copy)]
 pub struct NoSprite;
 
 /// Object is a trait that is implemented by objects that can be rendered
-// clone
 pub trait Object {
     // TODO: find a way to make it so that get_sprite and get_transform can be called without having to cast to a trait object
     fn get_name(&self) -> &String;
@@ -54,7 +62,7 @@ pub trait Object {
         &Sprite::NoSprite(NoSprite)
     }
     fn get_transform(&self) -> &Transform;
-    fn get_children(&self) -> &[Box<dyn Object>] {
+    fn get_children(&self) -> &[Rc<RefCell<Box<(dyn Object + 'static)>>>] {
         &[]
     }
     fn as_any(&self) -> &dyn std::any::Any;
@@ -63,11 +71,16 @@ pub trait Object {
 }
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
+#[derive(Clone, Copy)]
 pub struct Transform {
     pub x: f64,
     pub y: f64,
     pub rotation: f64,
     pub scale: f32,
+    /// origin relative to the position of the object
+    pub origin_x: f32,
+    /// origin relative to the position of the object
+    pub origin_y: f32,
 }
 
 impl Transform {
@@ -77,10 +90,13 @@ impl Transform {
             y: 0.0,
             rotation: 0.0,
             scale: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
         }
     }
 }
 
+/// a is the parent
 impl<'a, 'b> Add<&'b Transform> for &'a Transform {
     type Output = Transform;
 
@@ -90,11 +106,14 @@ impl<'a, 'b> Add<&'b Transform> for &'a Transform {
             y: self.y + other.y,
             rotation: self.rotation + other.rotation,
             scale: self.scale * other.scale,
+            origin_x: self.origin_x - other.x as f32,
+            origin_y: self.origin_y - other.y as f32,
         }
     }
 }
 
 /// Sprite is an enum that can be either a circle or a rectangle
+#[derive(Clone)]
 pub enum Sprite {
     Circle(Circle),
     Rectangle(Rectangle),
@@ -126,18 +145,52 @@ impl From<NoSprite> for Sprite {
     }
 }
 
-/// Scene is responsible for holding all objects and the background color
+// Define a type for the tasks to be stored in the queue
+pub type Task = Box<dyn FnOnce() -> ()>;
+
+// Define a struct for the task queue
+struct TaskQueue {
+    task_queue: Vec<Task>,
+}
+
+impl TaskQueue {
+    // Create a new empty task queue
+    fn new() -> Self {
+        TaskQueue {
+            task_queue: Vec::new(),
+        }
+    }
+
+    // Add a task to the queue
+    fn enqueue(&mut self, task: Task) {
+        self.task_queue.push(task);
+    }
+
+    // Execute all tasks in the queue
+    fn execute_all(&mut self) {
+        while let Some(task) = self.task_queue.pop() {
+            task();
+        }
+    }
+}
+
 pub struct Scene {
-    pub objects: Vec<Box<dyn Object>>,
-    pub background_color: Color,
-    pub is_random_chars: bool,
-    pub character: char,
+    pub inner_scene: Rc<RefCell<InnerScene>>,
+}
+
+/// Scene is responsible for holding all objects and the background color
+pub struct InnerScene {
+    pub objects: HashMap<String, Rc<RefCell<Box<dyn Object>>>>,
+    background_color: Color,
+    is_random_chars: bool,
+    character: char,
+    task_queue: TaskQueue,
 }
 
 impl Scene {
     pub fn new() -> Scene {
-        Scene {
-            objects: Vec::new(),
+        let inner_scene = InnerScene {
+            objects: HashMap::new(),
             background_color: Color {
                 r: 0,
                 g: 0,
@@ -146,12 +199,20 @@ impl Scene {
             },
             is_random_chars: false,
             character: '=',
+            task_queue: TaskQueue::new(),
+        };
+        Scene {
+            inner_scene: Rc::new(RefCell::new(inner_scene)),
         }
+    }
+
+    pub fn queue(&mut self, task: Task) {
+        self.inner_scene.borrow_mut().task_queue.enqueue(task);
     }
 
     /// if alpha is 0, then the background is spaces
     pub fn set_background_color(&mut self, color: Color) {
-        self.background_color = color;
+        self.inner_scene.borrow_mut().background_color = color;
     }
 
     /// adds an object on top of the other objects returns the name of the object
@@ -179,44 +240,45 @@ impl Scene {
         }
 
         let name = object.get_name().to_string();
-        self.objects.push(Box::new(object));
+        self.inner_scene
+            .borrow_mut()
+            .objects
+            .insert(name.clone(), Rc::new(RefCell::new(Box::new(object))));
         name
     }
 
     /// makes the characters that are rendered random
     pub fn set_random_chars(&mut self, is_random_chars: bool) {
-        self.is_random_chars = is_random_chars;
+        self.inner_scene.borrow_mut().is_random_chars = is_random_chars;
     }
 
     /// sets the character that will be rendered for each pixel --only works if is_random_chars is false
     pub fn set_character(&mut self, character: char) {
-        self.character = character;
+        self.inner_scene.borrow_mut().character = character;
     }
 
+    /// returns an option with Rc<RefCell<Box<dyn Object>>> if the object is found in the scene
     /// use sparingly, this is an O(n) operation
-    pub fn find_object(&mut self, object: &String) -> Option<&mut dyn Object> {
-        for (index, object_in_scene) in self.objects.iter().enumerate() {
-            if *object_in_scene.get_name() == *object {
-                return Some(&mut *self.objects[index]);
-            }
-        }
-        None
+    pub fn find_object(&self, object: &String) -> Option<Rc<RefCell<Box<(dyn Object + 'static)>>>> {
+        self.inner_scene.borrow().objects.get(object).cloned()
     }
 
     pub fn remove_object(&mut self, object: &String) -> bool {
-        for (index, object_in_scene) in self.objects.iter().enumerate() {
-            if *object_in_scene.get_name() == *object {
-                self.objects.remove(index);
-                return true;
-            }
-        }
-        false
+        self.inner_scene
+            .borrow_mut()
+            .objects
+            .remove(object)
+            .is_some()
     }
 
-    pub fn update_objects(&mut self) {
-        for object in &mut self.objects {
-            object.update();
-            if object.get_children().len() > 0 {
+    /// called by render automatically, use this for debugging
+    pub fn update_objects(&self) {
+        let objects = self.inner_scene.borrow().objects.clone();
+        self.inner_scene.borrow_mut().task_queue.execute_all();
+        for object in objects {
+            let mut borrowed_object = object.1.borrow_mut();
+            borrowed_object.update();
+            if borrowed_object.get_children().len() > 0 {
                 // TODO
             }
         }
@@ -253,57 +315,78 @@ impl Renderer {
     }
 
     ///  calls the update method on all objects in the scene and then renders the scene
-    pub fn render(&self, scene: &mut Scene) {
-        scene.update_objects();
+    pub fn render(&self, scene: Rc<RefCell<Scene>>) {
+        // update objects
+        {
+            scene.borrow().update_objects();
+        }
 
-        let mut pixel_grid =
-            vec![vec![scene.background_color; self.width as usize]; self.height as usize];
+        {
+            let borrowed_scene = scene.borrow();
+            let borrowed_inner_scene = borrowed_scene.inner_scene.borrow();
 
-        self.render_objects(&scene.objects, &mut pixel_grid, Transform::default());
-        self.render_pixel_grid(&pixel_grid, scene);
+            let mut pixel_grid =
+                vec![
+                    vec![borrowed_inner_scene.background_color; self.width as usize];
+                    self.height as usize
+                ];
+
+            self.render_objects(
+                // not sure how slow this is
+                &borrowed_inner_scene
+                    .objects
+                    .values()
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                &mut pixel_grid,
+                Transform::default(),
+            );
+            self.render_pixel_grid(&pixel_grid, &borrowed_inner_scene);
+        }
     }
 
     fn render_objects(
         &self,
-        objects: &[Box<dyn Object>],
+        objects: &[Rc<RefCell<Box<(dyn Object + 'static)>>>],
         pixel_grid: &mut Vec<Vec<Color>>,
         transform_offset: Transform,
     ) {
         // could possible be done multithreaded and combine layers afterward
         for object in objects {
+            let borrowed_object = object.borrow_mut();
             // check if object is circle or rectangle
-            match object.get_sprite() {
+            match borrowed_object.get_sprite() {
                 Sprite::Circle(circle) => render_circle(
                     &circle,
-                    &(object.get_transform() + &transform_offset),
+                    &(borrowed_object.get_transform() + &transform_offset),
                     pixel_grid,
                     self.stretch,
                 ),
                 Sprite::Rectangle(rectangle) => render_rectangle(
                     &rectangle,
-                    &(object.get_transform() + &transform_offset),
+                    &(borrowed_object.get_transform() + &transform_offset),
                     pixel_grid,
                     self.stretch,
                 ),
                 Sprite::Image(image) => render_texture(
                     &image.texture,
-                    &(object.get_transform() + &transform_offset),
+                    &(borrowed_object.get_transform() + &transform_offset),
                     pixel_grid,
                     self.stretch,
                 ),
                 Sprite::NoSprite(NoSprite) => {}
             }
-            if object.get_children().len() > 0 {
+            if borrowed_object.get_children().len() > 0 {
                 self.render_objects(
-                    object.get_children(),
+                    borrowed_object.get_children(),
                     pixel_grid,
-                    object.get_transform() + &transform_offset,
+                    borrowed_object.get_transform() + &transform_offset,
                 );
             }
         }
     }
 
-    pub fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &Scene) {
+    pub fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene: &InnerScene) {
         let mut stdout = std::io::stdout().lock();
         crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");

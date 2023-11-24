@@ -14,8 +14,18 @@ pub fn render_circle(
     let squared_radius = circle.radius.powi(2);
     for x in 0..pixel_grid[0].len() {
         for y in 0..pixel_grid.len() {
-            let adjusted_x = (x as f32 / stretch) / transform.scale;
-            let adjusted_y = y as f32 / transform.scale;
+            let mut adjusted_x = (x as f32 / stretch) / transform.scale;
+            let mut adjusted_y = y as f32 / transform.scale;
+
+            if transform.rotation != 0.0 {
+                (adjusted_x, adjusted_y) = rotate_point_around(
+                    adjusted_x,
+                    adjusted_y,
+                    transform.x as f32 + transform.origin_x,
+                    transform.y as f32 + transform.origin_y,
+                    transform.rotation,
+                );
+            }
 
             let dx = adjusted_x as f64 - transform.x;
             let dy = adjusted_y as f64 - transform.y;
@@ -52,8 +62,8 @@ pub fn render_rectangle(
                 (adjusted_x, adjusted_y) = rotate_point_around(
                     adjusted_x,
                     adjusted_y,
-                    transform.x as f32,
-                    transform.y as f32,
+                    transform.x as f32 + transform.origin_x,
+                    transform.y as f32 + transform.origin_y,
                     transform.rotation,
                 );
             }
@@ -75,6 +85,7 @@ pub fn render_rectangle(
     }
 }
 
+#[derive(Clone)]
 pub struct Texture {
     pub pixels: Vec<Vec<Color>>, // not sure how inefficient this is but it will do for now
 }
@@ -95,8 +106,8 @@ pub fn render_texture(
                 (adjusted_x, adjusted_y) = rotate_point_around(
                     adjusted_x,
                     adjusted_y,
-                    transform.x as f32,
-                    transform.y as f32,
+                    transform.x as f32 + transform.origin_x,
+                    transform.y as f32 + transform.origin_y,
                     transform.rotation,
                 );
             }
@@ -112,10 +123,10 @@ pub fn render_texture(
             {
                 let out_pixel = &mut pixel_grid[y][x];
 
-                let texture_y_coord = ((relative_y + texture_height as f64 / 2.0) as usize);
-                let texture_x_coord = ((relative_x + texture_width as f64 / 2.0) as usize);
+                let texture_y_coord = (relative_y + texture_height as f64 / 2.0) as usize;
+                let texture_x_coord = (relative_x + texture_width as f64 / 2.0) as usize;
 
-                if (texture_x_coord >= texture_height || texture_y_coord >= texture_width) {
+                if texture_x_coord >= texture_height || texture_y_coord >= texture_width {
                     continue;
                 }
 

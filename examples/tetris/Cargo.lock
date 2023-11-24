@@ -73,6 +73,7 @@ version = "0.1.0"
 dependencies = [
  "colored",
  "crossterm",
+ "dioxus-debug-cell",
  "image",
  "rand",
 ]
@@ -149,6 +150,12 @@ name = "crunchy"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
+
+[[package]]
+name = "dioxus-debug-cell"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ea539174bb236e0e7dc9c12b19b88eae3cb574dedbd0252a2d43ea7e6de13e2"
 
 [[package]]
 name = "either"
@@ -572,6 +579,7 @@ version = "0.1.0"
 dependencies = [
  "console_renderer",
  "crossterm",
+ "dioxus-debug-cell",
  "lazy_static",
  "rand",
 ]
