@@ -21,6 +21,7 @@ pub fn load_texture(path: &str) -> Texture {
             height as usize
         ],
     };
+
     for x in 0..width {
         for y in 0..height {
             let pixel = image.get_pixel(x, y);

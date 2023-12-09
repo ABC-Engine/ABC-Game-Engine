@@ -7,7 +7,7 @@ edition = "2021"
 
 
 [dependencies]
-console_renderer = { path = "../../../console_renderer" }
+ABC_Game_Engine = { path = "../../../ABC-Engine" }
 crossterm = "0.27.0"
 dioxus-debug-cell = "0.1.1"
 lazy_static = "1.4.0"

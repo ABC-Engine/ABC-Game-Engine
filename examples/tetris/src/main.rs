@@ -1,6 +1,5 @@
 // DO NOT USE THIS AS AN EXAMPLE YET
 // this is not yet complete
-use console_renderer::*;
 use dioxus_debug_cell::RefCell; // better debugging, acts normal in release mode
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -9,6 +8,7 @@ use std::rc::Rc;
 use std::sync::Mutex;
 use std::time::Instant;
 use std::{any, vec};
+use ABC_Game_Engine::*;
 
 lazy_static! {
     static ref PIECE_GRID: Mutex<Vec<Vec<bool>>> = Mutex::new(vec![vec![false; 20]; 10]);
@@ -248,34 +248,6 @@ struct PieceSquare {
     transform: Transform,
     sprite: Sprite,
     name: String,
-}
-
-impl Object for PieceSquare {
-    fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-
-    fn get_name(&self) -> &String {
-        &self.name
-    }
-
-    fn get_sprite(&self) -> &Sprite {
-        &self.sprite
-    }
-
-    fn get_transform(&self) -> &Transform {
-        &self.transform
-    }
-
-    fn get_children(&self) -> &[Rc<RefCell<Box<dyn Object>>>] {
-        &[]
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn update(&mut self) {}
 }
 
 #[derive(Clone)]
@@ -531,8 +503,8 @@ fn main() {
     let mut renderer = Renderer::new(40, 80);
     // console settings need to be adjusted for this to work
     renderer.set_stretch(1.0);
-    let scene = Rc::new(RefCell::new(Scene::new()));
-    scene.borrow_mut().set_background_color(Color {
+    let scene = Scene::new();
+    scene.set_background_color(Color {
         r: 100,
         g: 100,
         b: 100,

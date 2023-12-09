@@ -3,10 +3,38 @@
 version = 3
 
 [[package]]
+name = "ABC-ECS"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe5cb1ae86359a98d708008697187bdeff8ea3f9d2d35d9998fbc1d270a7f1b8"
+dependencies = [
+ "anymap",
+ "slotmap",
+]
+
+[[package]]
+name = "ABC_Game_Engine"
+version = "0.1.0"
+dependencies = [
+ "ABC-ECS",
+ "colored",
+ "crossterm",
+ "dioxus-debug-cell",
+ "image",
+ "rand",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f26201604c87b1e01bd3d98f8d5d9a8fcbb815e8cedb41ffccbeb4bf593a35fe"
+
+[[package]]
+name = "anymap"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33954243bd79057c2de7338850b85983a44588021f8a5fee574a8888c6de4344"
 
 [[package]]
 name = "autocfg"
@@ -65,17 +93,6 @@ dependencies = [
  "is-terminal",
  "lazy_static",
  "windows-sys",
-]
-
-[[package]]
-name = "console_renderer"
-version = "0.1.0"
-dependencies = [
- "colored",
- "crossterm",
- "dioxus-debug-cell",
- "image",
- "rand",
 ]
 
 [[package]]
@@ -559,6 +576,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
+name = "slotmap"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dbff4acf519f630b3a3ddcfaea6c06b42174d9a44bc70c620e9ed1649d58b82a"
+dependencies = [
+ "version_check",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -583,6 +609,12 @@ dependencies = [
  "jpeg-decoder",
  "weezl",
 ]
+
+[[package]]
+name = "version_check"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "wasi"
