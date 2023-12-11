@@ -20,12 +20,23 @@ use std::{
 };
 pub use ABC_ECS::{Component, EntitiesAndComponents, GameEngine, System};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: f32,
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Color {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 1.0,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -177,109 +188,3 @@ impl Scene {
         }
     }
 }
-
-/*pub struct InnerScene {
-    pub objects: HashMap<String, Rc<RefCell<Box<dyn Object>>>>,
-    background_color: Color,
-    is_random_chars: bool,
-    character: char,
-    task_queue: TaskQueue,
-}*/
-
-/*impl Scene {
-    pub fn new() -> Scene {
-        let inner_scene = InnerScene {
-            objects: HashMap::new(),
-            background_color: Color {
-                r: 0,
-                g: 0,
-                b: 0,
-                a: 1.0,
-            },
-            is_random_chars: false,
-            character: '=',
-            task_queue: TaskQueue::new(),
-        };
-        Scene {
-            inner_scene: Rc::new(RefCell::new(inner_scene)),
-        }
-    }
-
-    pub fn queue(&mut self, task: Task) {
-        self.inner_scene.borrow_mut().task_queue.enqueue(task);
-    }
-
-    /// if alpha is 0, then the background is spaces
-    pub fn set_background_color(&mut self, color: Color) {
-        self.inner_scene.borrow_mut().background_color = color;
-    }
-
-    /// adds an object on top of the other objects returns the name of the object
-    pub fn add_object(&mut self, mut object: impl Object + 'static) -> String {
-        if self.find_object(object.get_name()).is_some() {
-            let mut clone_number = 0;
-            while self
-                .find_object(&format!("{}({})", object.get_name(), clone_number))
-                .is_some()
-            {
-                clone_number += 1;
-            }
-
-            let new_name = format!("{}({})", object.get_name(), clone_number);
-            object.set_name(new_name.clone());
-            if *object.get_name() != new_name {
-                stderr()
-                    .write(
-                        format!("Error: if object is clonable set_name must be implemented",)
-                            .as_bytes(),
-                    )
-                    .expect("failed to display error if this happens then idk what to tell you");
-                panic!("Object name was already taken")
-            }
-        }
-
-        let name = object.get_name().to_string();
-        self.inner_scene
-            .borrow_mut()
-            .objects
-            .insert(name.clone(), Rc::new(RefCell::new(Box::new(object))));
-        name
-    }
-
-    /// makes the characters that are rendered random
-    pub fn set_random_chars(&mut self, is_random_chars: bool) {
-        self.inner_scene.borrow_mut().is_random_chars = is_random_chars;
-    }
-
-    /// sets the character that will be rendered for each pixel --only works if is_random_chars is false
-    pub fn set_character(&mut self, character: char) {
-        self.inner_scene.borrow_mut().character = character;
-    }
-
-    /// returns an option with Rc<RefCell<Box<dyn Object>>> if the object is found in the scene
-    /// use sparingly, this is an O(n) operation
-    pub fn find_object(&self, object: &String) -> Option<Rc<RefCell<Box<(dyn Object + 'static)>>>> {
-        self.inner_scene.borrow().objects.get(object).cloned()
-    }
-
-    pub fn remove_object(&mut self, object: &String) -> bool {
-        self.inner_scene
-            .borrow_mut()
-            .objects
-            .remove(object)
-            .is_some()
-    }
-
-    /// called by render automatically, use this for debugging
-    pub fn update_objects(&self) {
-        let objects = self.inner_scene.borrow().objects.clone();
-        self.inner_scene.borrow_mut().task_queue.execute_all();
-        for object in objects {
-            let mut borrowed_object = object.1.borrow_mut();
-            borrowed_object.update();
-            if borrowed_object.get_children().len() > 0 {
-                // TODO
-            }
-        }
-    }
-}*/

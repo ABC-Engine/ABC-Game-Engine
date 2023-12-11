@@ -55,11 +55,21 @@ fn main() {
     }
 
     loop {
+        let run_start = Instant::now();
         scene.game_engine.run();
         // should be implemented as a system later
+        let run_time_ms = run_start.elapsed().as_millis();
+
         renderer.render(
             &scene.game_engine.entities_and_components,
             &scene.scene_params,
         );
+
+        let render_time_ms = run_start.elapsed().as_millis() - run_time_ms;
+
+        /*println!(
+            "run time: {}ms \n render time: {}ms",
+            run_time_ms, render_time_ms
+        );*/
     }
 }

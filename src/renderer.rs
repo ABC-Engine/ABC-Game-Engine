@@ -14,6 +14,9 @@ pub struct Renderer {
     width: u32,
     height: u32,
     stretch: f32,
+    // used for diffing
+    // will be empty if no previous frame
+    last_pixel_grid: Vec<Vec<Color>>,
 }
 
 impl Renderer {
@@ -31,6 +34,7 @@ impl Renderer {
             width,
             height,
             stretch: 2.3,
+            last_pixel_grid: vec![],
         }
     }
 
@@ -38,8 +42,8 @@ impl Renderer {
         self.stretch = stretch;
     }
 
-    ///  calls the update method on all objects in the scene and then renders the scene
-    pub fn render(&self, scene: &EntitiesAndComponents, scene_params: &SceneParams) {
+    ///  Renders the scene
+    pub fn render(&mut self, scene: &EntitiesAndComponents, scene_params: &SceneParams) {
         let mut pixel_grid =
             vec![vec![scene_params.background_color; self.width as usize]; self.height as usize];
 
@@ -91,7 +95,7 @@ impl Renderer {
         }
     }
 
-    pub fn render_pixel_grid(&self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
+    pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
         let mut stdout = std::io::stdout().lock();
         crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");
@@ -101,6 +105,12 @@ impl Renderer {
             for (y, pixel) in row.into_iter().enumerate() {
                 crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),)
                     .expect("Failed to move cursor");
+
+                // if the pixel is the same as the last pixel, don't render it
+                if self.last_pixel_grid.len() != 0 && *pixel == self.last_pixel_grid[x][y] {
+                    continue;
+                }
+
                 // \x08 is backspace
                 if pixel.a == 0.0 {
                     write!(stdout, "{}\x08", " ").expect("failed to write white space");
@@ -123,5 +133,6 @@ impl Renderer {
             }
         }
         stdout.flush().expect("failed to flush stdout");
+        self.last_pixel_grid = pixel_grid.clone();
     }
 }
