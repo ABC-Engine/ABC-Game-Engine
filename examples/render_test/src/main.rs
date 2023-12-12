@@ -67,9 +67,9 @@ fn main() {
 
         let render_time_ms = run_start.elapsed().as_millis() - run_time_ms;
 
-        /*println!(
+        println!(
             "run time: {}ms \n render time: {}ms",
             run_time_ms, render_time_ms
-        );*/
+        );
     }
 }

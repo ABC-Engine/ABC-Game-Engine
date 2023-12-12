@@ -1,11 +1,9 @@
-use crate::Rc;
 use crate::{
     render_circle, render_rectangle, render_texture, Color, Scene, SceneParams, Sprite, Transform,
 };
 use colored::Colorize;
 use crossterm::cursor;
 use rand::Rng;
-use std::cell::RefCell;
 use std::io::Write;
 use ABC_ECS::{EntitiesAndComponents, Entity};
 
@@ -96,14 +94,16 @@ impl Renderer {
     }
 
     pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
-        let mut stdout = std::io::stdout().lock();
-        crossterm::queue!(stdout, cursor::Hide, cursor::MoveTo(0, 0))
+        let stdout = std::io::stdout().lock();
+        let mut handle = std::io::BufWriter::with_capacity(8192, stdout);
+
+        crossterm::queue!(handle, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
-                crossterm::queue!(stdout, cursor::MoveTo(y as u16, x as u16),)
+                crossterm::queue!(handle, cursor::MoveTo(y as u16, x as u16),)
                     .expect("Failed to move cursor");
 
                 // if the pixel is the same as the last pixel, don't render it
@@ -113,7 +113,7 @@ impl Renderer {
 
                 // \x08 is backspace
                 if pixel.a == 0.0 {
-                    write!(stdout, "{}\x08", " ").expect("failed to write white space");
+                    write!(handle, "{}\x08", " ").expect("failed to write white space");
                 } else {
                     if scene_params.is_random_chars {
                         pixel_character +=
@@ -123,7 +123,7 @@ impl Renderer {
                     }
 
                     write!(
-                        stdout,
+                        handle,
                         "{}\x08",
                         pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
                     )
@@ -132,7 +132,7 @@ impl Renderer {
                 }
             }
         }
-        stdout.flush().expect("failed to flush stdout");
+        handle.flush().expect("failed to flush stdout");
         self.last_pixel_grid = pixel_grid.clone();
     }
 }
