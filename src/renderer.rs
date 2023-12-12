@@ -99,6 +99,11 @@ impl Renderer {
 
         crossterm::queue!(handle, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");
+        crossterm::queue!(
+            handle,
+            crossterm::terminal::SetSize(pixel_grid.len() as u16, pixel_grid[0].len() as u16)
+        )
+        .expect("failed to set terminal size");
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {

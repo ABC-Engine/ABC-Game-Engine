@@ -54,22 +54,30 @@ fn main() {
         );
     }
 
+    let mut past_render_fps = vec![];
     loop {
         let run_start = Instant::now();
         scene.game_engine.run();
         // should be implemented as a system later
-        let run_time_ms = run_start.elapsed().as_millis();
+        let run_time_ns = run_start.elapsed().as_nanos();
 
+        let render_start = Instant::now();
         renderer.render(
             &scene.game_engine.entities_and_components,
             &scene.scene_params,
         );
 
-        let render_time_ms = run_start.elapsed().as_millis() - run_time_ms;
+        let render_fps = 1.0 / (render_start.elapsed().as_millis() as f32 / 1000.0);
+        past_render_fps.push(render_fps);
+        if past_render_fps.len() > 10 {
+            past_render_fps.remove(0);
+        }
+
+        let average_render_fps = past_render_fps.iter().sum::<f32>() / past_render_fps.len() as f32;
 
         println!(
-            "run time: {}ms \n render time: {}ms",
-            run_time_ms, render_time_ms
+            "run time: {}ns \n render fps: {:.2}",
+            run_time_ns, average_render_fps
         );
     }
 }
