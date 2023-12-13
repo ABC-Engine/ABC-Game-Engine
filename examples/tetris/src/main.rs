@@ -1,5 +1,7 @@
-// DO NOT USE THIS AS AN EXAMPLE YET
-// this is not yet complete
+/// DO NOT USE THIS AS AN EXAMPLE YET
+/// this is not yet complete
+/// it also does not use the current version of the library
+/// so it does not even compile.
 use dioxus_debug_cell::RefCell; // better debugging, acts normal in release mode
 use lazy_static::lazy_static;
 use rand::Rng;
@@ -311,7 +313,7 @@ impl Object for PieceObject {
             }
         }
 
-        //handle horizontal movement using crossterm events
+        // handle horizontal movement using crossterm events
         let key = get_input();
         if key == Option::Some(KeyCode::Char('a')) {
             if is_valid_move(

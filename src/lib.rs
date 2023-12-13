@@ -7,7 +7,6 @@ mod shape_renderer;
 pub use shape_renderer::*;
 mod load_texture;
 pub use crossterm::event::KeyCode;
-use dioxus_debug_cell::RefCell; // better debugging, acts normal in release mode
 pub use input::*;
 pub use load_texture::*;
 use rand::Rng;
@@ -18,7 +17,10 @@ use std::{
     clone,
     io::{stderr, Write},
 };
-pub use ABC_ECS::{Component, EntitiesAndComponents, GameEngine, System};
+pub use ABC_ECS::{
+    get_components, get_components_mut, Component, EntitiesAndComponents, Entity, GameEngine,
+    System,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {

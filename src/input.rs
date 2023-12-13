@@ -1,6 +1,6 @@
 use core::time::Duration;
 use crossterm::event;
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{Event, KeyCode, KeyEvent};
 
 pub fn get_input() -> Option<KeyCode> {
     if event::poll(Duration::from_secs(0)).expect("Error polling for event") {

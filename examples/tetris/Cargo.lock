@@ -5,8 +5,6 @@ version = 3
 [[package]]
 name = "ABC-ECS"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5cb1ae86359a98d708008697187bdeff8ea3f9d2d35d9998fbc1d270a7f1b8"
 dependencies = [
  "anymap",
  "slotmap",

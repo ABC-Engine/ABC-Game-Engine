@@ -3,6 +3,7 @@
         ".\\render_test\\Cargo.toml",
         ".\\examples\\tetris\\Cargo.toml",
         ".\\examples\\render_test\\Cargo.toml",
-        ".\\examples\\render_test\\Cargo.toml"
+        ".\\examples\\render_test\\Cargo.toml",
+        ".\\examples\\bullet_heaven\\Cargo.toml"
     ]
 }
