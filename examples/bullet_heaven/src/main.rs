@@ -1,10 +1,17 @@
 use rand::Rng;
 /// A basic bullet heaven made with the library
 /// not yet complete
-use std::time::Instant;
+use std::{time::Instant, vec};
 use ABC_Game_Engine::*;
 
 const WINDOW_DIMS: (u32, u32) = (160, 80);
+
+struct Player {
+    health: u32,
+    bullets_at_once: u32,
+}
+
+impl Component for Player {}
 
 struct Enemy {
     health: u32,
@@ -46,14 +53,19 @@ struct PlayerShootingSystem {
 impl System for PlayerShootingSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         if self.last_shot.elapsed().as_millis() / 1000 > self.shot_rate {
-            let (player_transform,) =
-                get_components!(entities_and_components, self.player_entity, Transform);
+            let (player_transform, player_component) = get_components!(
+                entities_and_components,
+                self.player_entity,
+                Transform,
+                Player
+            );
 
             // check if there is an enemy in the scene and if so, get the normalized direction vector to the closest one
             // otherwise, return
-            let mut closest_enemy_dir: [f64; 2];
+            let mut closest_enemies_dirs: Vec<[f64; 2]> = vec![];
             {
-                let mut closest_enemy: Option<(Entity, f64)> = None;
+                // ordered largest to smallest
+                let mut closest_enemies: Vec<(Entity, f64)> = vec![];
 
                 for entity_index in 0..entities_and_components.get_entity_count() {
                     let other_entity = entities_and_components.get_entity(entity_index).unwrap(); // can't fail unless multithreaded
@@ -65,15 +77,27 @@ impl System for PlayerShootingSystem {
                         let distance = ((player_transform.x - other_transform.x).powi(2)
                             + (player_transform.y - other_transform.y).powi(2))
                         .sqrt();
-                        if closest_enemy.is_none() || distance < closest_enemy.unwrap().1 {
-                            closest_enemy = Some((other_entity, distance));
+                        if closest_enemies.len() == 0 {
+                            closest_enemies = vec![(other_entity, distance)];
+                        } else {
+                            for (i, enemies) in closest_enemies.clone().into_iter().enumerate() {
+                                if distance < enemies.1 {
+                                    closest_enemies.insert(i, (other_entity, distance))
+                                }
+                            }
                         }
                     }
                 }
-                if let Some((closest_enemy_entity, _)) = closest_enemy {
-                    let (closest_enemy_transform,) =
-                        get_components!(entities_and_components, closest_enemy_entity, Transform);
-                    closest_enemy_dir = [
+                for i in 0..player_component
+                    .bullets_at_once
+                    .min(closest_enemies.len() as u32)
+                {
+                    let (closest_enemy_transform,) = get_components!(
+                        entities_and_components,
+                        closest_enemies.iter().nth(i as usize).unwrap().0,
+                        Transform
+                    );
+                    let mut closest_enemy_dir = [
                         player_transform.x - closest_enemy_transform.x,
                         player_transform.y - closest_enemy_transform.y,
                     ];
@@ -83,43 +107,55 @@ impl System for PlayerShootingSystem {
                         closest_enemy_dir[0] / magnitude,
                         closest_enemy_dir[1] / magnitude,
                     ];
-                } else {
-                    return;
+                    closest_enemies_dirs.push(closest_enemy_dir)
                 }
             }
 
-            let bullet_circle = Circle {
-                radius: 2.0,
-                color: Color {
-                    r: 0,
-                    g: 0,
-                    b: 150,
-                    a: 1.0,
-                },
-            };
-            let bullet_entity = entities_and_components.add_entity();
-            entities_and_components.add_component_to(bullet_entity, Sprite::Circle(bullet_circle));
-            entities_and_components.add_component_to(
-                bullet_entity,
-                Transform {
-                    x: player_transform.x,
-                    y: player_transform.y,
-                    rotation: 0.0,
-                    scale: 1.0,
-                    origin_x: 0.0,
-                    origin_y: 0.0,
-                },
-            );
-            entities_and_components.add_component_to(
-                bullet_entity,
-                Bullet {
-                    damage: 1,
-                    direction: closest_enemy_dir,
-                },
-            );
+            for i in 0..player_component
+                .bullets_at_once
+                .min(closest_enemies_dirs.len() as u32)
+            {
+                spawn_bullet(
+                    entities_and_components,
+                    [player_transform.x, player_transform.y],
+                    *closest_enemies_dirs.iter().nth(i as usize).unwrap(),
+                )
+            }
             self.last_shot = Instant::now();
         }
     }
+}
+
+fn spawn_bullet(entities_and_components: &mut EntitiesAndComponents, pos: [f64; 2], dir: [f64; 2]) {
+    let bullet_circle = Circle {
+        radius: 2.0,
+        color: Color {
+            r: 255,
+            g: 0,
+            b: 0,
+            a: 1.0,
+        },
+    };
+    let bullet_entity = entities_and_components.add_entity();
+    entities_and_components.add_component_to(bullet_entity, Sprite::Circle(bullet_circle));
+    entities_and_components.add_component_to(
+        bullet_entity,
+        Transform {
+            x: pos[0],
+            y: pos[1],
+            rotation: 0.0,
+            scale: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        },
+    );
+    entities_and_components.add_component_to(
+        bullet_entity,
+        Bullet {
+            damage: 1,
+            direction: dir,
+        },
+    );
 }
 
 struct BulletMovementSystem {
@@ -140,13 +176,18 @@ impl System for BulletMovementSystem {
     }
 }
 
-struct BulletCollisionSystem {}
+struct BulletCollisionSystem {
+    player_entity: Entity,
+    enemies_killed: u32,
+    last_upgrade: u32,
+}
 
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        for entity_index in 0..entities_and_components.get_entity_count() {
+        let mut bullet_index = 0;
+        while bullet_index < entities_and_components.get_entity_count() {
             // if multiple bullets spawn at the same time, this could cause a problem
-            let self_entity = entities_and_components.get_entity(entity_index).unwrap(); // can't fail unless multithreaded
+            let self_entity = entities_and_components.get_entity(bullet_index).unwrap(); // can't fail unless multithreaded
             if let Some(_) = entities_and_components.try_get_component::<Bullet>(self_entity) {
                 let (self_transform,) =
                     get_components!(entities_and_components, self_entity, Transform);
@@ -166,11 +207,16 @@ impl System for BulletCollisionSystem {
                         if distance < 5.0 {
                             entities_and_components.remove_entity(self_entity);
                             entities_and_components.remove_entity(other_entity);
+                            if self.enemies_killed - self.last_upgrade == 5 {
+                                upgrade_player(entities_and_components, self.player_entity);
+                                self.last_upgrade = self.enemies_killed;
+                            }
                             break;
                         }
                     }
                 }
             }
+            bullet_index += 1;
         }
     }
 }
@@ -248,8 +294,20 @@ impl System for EnemySpawnerSystem {
             );
             entities_and_components.add_component_to(enemy_entity, Enemy { health: 1 });
             self.last_spawn = Instant::now();
+            for i in 0..entities_and_components.get_entity_count() {
+                let entity = entities_and_components.get_entity(i).unwrap();
+                if let Some(_) = entities_and_components.try_get_component::<Player>(entity) {
+                    upgrade_player(entities_and_components, entity)
+                }
+            }
+            self.spawn_rate = (self.spawn_rate as f32 * 0.95) as u128;
         }
     }
+}
+
+fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: Entity) {
+    let player_component = entities_and_components.get_component_mut::<Player>(player);
+    player_component.bullets_at_once += 1;
 }
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
@@ -287,6 +345,13 @@ fn main() {
                 origin_y: 0.0,
             },
         );
+        entities_and_components.add_component_to(
+            player_object,
+            Player {
+                health: 100,
+                bullets_at_once: 1,
+            },
+        )
     }
 
     {
@@ -301,7 +366,7 @@ fn main() {
         }));
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
             last_spawn: Instant::now(),
-            spawn_rate: 10,
+            spawn_rate: 2,
         }));
         scene.game_engine.add_system(Box::new(PlayerShootingSystem {
             player_entity: player_object,
@@ -313,7 +378,11 @@ fn main() {
             .add_system(Box::new(BulletMovementSystem { bullet_speed: 1.0 }));
         scene
             .game_engine
-            .add_system(Box::new(BulletCollisionSystem {}));
+            .add_system(Box::new(BulletCollisionSystem {
+                player_entity: player_object,
+                enemies_killed: 0,
+                last_upgrade: 0,
+            }));
     }
 
     let mut past_render_fps = vec![];
