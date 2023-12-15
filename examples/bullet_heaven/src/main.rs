@@ -385,13 +385,11 @@ fn main() {
             }));
     }
 
-    let mut past_render_fps = vec![];
+    let mut frames_performed: u128 = 0;
+    let start_time = Instant::now();
     loop {
         let run_start = Instant::now();
         scene.game_engine.run();
-        let run_time_ns = run_start.elapsed().as_millis();
-
-        let render_start = Instant::now();
 
         // should be implemented as a system later
         renderer.render(
@@ -399,17 +397,13 @@ fn main() {
             &scene.scene_params,
         );
 
-        let render_fps = 1.0 / (render_start.elapsed().as_millis() as f32 / 1000.0);
-        past_render_fps.push(render_fps);
-        if past_render_fps.len() > 100 {
-            past_render_fps.remove(0);
+        if frames_performed > 100000 {
+            println!(
+                "fps: {}",
+                frames_performed as f32 / start_time.elapsed().as_secs_f32()
+            );
+            break;
         }
-
-        let average_render_fps = past_render_fps.iter().sum::<f32>() / past_render_fps.len() as f32;
-
-        println!(
-            "run time: {}ms \n render fps: {:.2}",
-            run_time_ns, average_render_fps
-        );
+        frames_performed += 1;
     }
 }

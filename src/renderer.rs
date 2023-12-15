@@ -4,7 +4,7 @@ use crate::{
 use colored::Colorize;
 use crossterm::cursor;
 use rand::Rng;
-use std::io::Write;
+use std::{io::Write, vec};
 use ABC_ECS::{EntitiesAndComponents, Entity};
 
 /// Renderer is responsible for rendering the scene
@@ -15,15 +15,17 @@ pub struct Renderer {
     // used for diffing
     // will be empty if no previous frame
     last_pixel_grid: Vec<Vec<Color>>,
+    handle: std::io::BufWriter<std::io::StdoutLock<'static>>,
 }
 
 impl Renderer {
     pub fn new(width: u32, height: u32) -> Renderer {
-        let mut stdout = std::io::stdout().lock();
+        let stdout = std::io::stdout().lock();
+        let mut handle = std::io::BufWriter::with_capacity(8192, stdout);
         crossterm::queue!(
-            stdout,
+            handle,
             cursor::Hide,
-            crossterm::terminal::SetSize(width as u16 * 2, height as u16 * 2),
+            crossterm::terminal::SetSize(width as u16, height as u16),
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
         .expect("Error: failed to set terminal size");
@@ -33,6 +35,7 @@ impl Renderer {
             height,
             stretch: 2.3,
             last_pixel_grid: vec![],
+            handle,
         }
     }
 
@@ -96,31 +99,27 @@ impl Renderer {
     }
 
     pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
-        let stdout = std::io::stdout().lock();
-        let mut handle = std::io::BufWriter::with_capacity(8192, stdout);
-
-        crossterm::queue!(handle, cursor::Hide, cursor::MoveTo(0, 0))
+        /*crossterm::queue!(handle, cursor::Hide, cursor::MoveTo(0, 0))
             .expect("Error: failed to move cursor to 0, 0");
         crossterm::queue!(
             handle,
             crossterm::terminal::SetSize(pixel_grid.len() as u16, pixel_grid[0].len() as u16)
         )
-        .expect("failed to set terminal size");
+        .expect("failed to set terminal size");*/
 
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
-                crossterm::queue!(handle, cursor::MoveTo(y as u16, x as u16),)
-                    .expect("Failed to move cursor");
-
                 // if the pixel is the same as the last pixel, don't render it
                 if self.last_pixel_grid.len() != 0 && *pixel == self.last_pixel_grid[x][y] {
                     continue;
                 }
+                crossterm::queue!(self.handle, cursor::MoveTo(y as u16, x as u16))
+                    .expect("Failed to move cursor");
 
                 // \x08 is backspace
                 if pixel.a == 0.0 {
-                    write!(handle, "{}\x08", " ").expect("failed to write white space");
+                    write!(self.handle, "{}\x08", " ").expect("failed to write white space");
                 } else {
                     if scene_params.is_random_chars {
                         pixel_character +=
@@ -130,7 +129,7 @@ impl Renderer {
                     }
 
                     write!(
-                        handle,
+                        self.handle,
                         "{}\x08",
                         pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
                     )
@@ -139,7 +138,8 @@ impl Renderer {
                 }
             }
         }
-        handle.flush().expect("failed to flush stdout");
+
+        self.handle.flush().expect("failed to flush stdout");
         self.last_pixel_grid = pixel_grid.clone();
     }
 }
