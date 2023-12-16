@@ -62,7 +62,7 @@ impl Renderer {
         for i in 0..entities_and_components.get_entity_count() {
             let (sprite, transform) = ABC_ECS::get_components!(
                 entities_and_components,
-                entities_and_components.get_entity(i).unwrap(), // can't fail unless done multithreaded in the future
+                entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
                 Sprite,
                 Transform
             );
@@ -90,7 +90,7 @@ impl Renderer {
             }
             if let Some(children) = entities_and_components
                 .try_get_component::<EntitiesAndComponents>(
-                    entities_and_components.get_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
+                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
                 )
             {
                 self.render_objects(&children, pixel_grid, transform + &transform_offset);

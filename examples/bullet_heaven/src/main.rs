@@ -4,7 +4,7 @@ use rand::Rng;
 use std::{time::Instant, vec};
 use ABC_Game_Engine::*;
 
-const WINDOW_DIMS: (u32, u32) = (160, 80);
+const WINDOW_DIMS: (u32, u32) = (320, 320);
 
 struct Player {
     health: u32,
@@ -68,7 +68,9 @@ impl System for PlayerShootingSystem {
                 let mut closest_enemies: Vec<(Entity, f64)> = vec![];
 
                 for entity_index in 0..entities_and_components.get_entity_count() {
-                    let other_entity = entities_and_components.get_entity(entity_index).unwrap(); // can't fail unless multithreaded
+                    let other_entity = entities_and_components
+                        .get_nth_entity(entity_index)
+                        .unwrap(); // can't fail unless multithreaded
                     if let Some(_) =
                         entities_and_components.try_get_component::<Enemy>(other_entity)
                     {
@@ -165,8 +167,10 @@ struct BulletMovementSystem {
 impl System for BulletMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         for entity_index in 0..entities_and_components.get_entity_count() {
-            let self_entity = entities_and_components.get_entity(entity_index).unwrap(); // can't fail unless multithreaded
-            let (mut self_transform,) =
+            let self_entity = entities_and_components
+                .get_nth_entity(entity_index)
+                .unwrap(); // can't fail unless multithreaded
+            let (self_transform,) =
                 get_components_mut!(entities_and_components, self_entity, Transform);
             if let Some(bullet) = entities_and_components.try_get_component::<Bullet>(self_entity) {
                 self_transform.x -= self.bullet_speed * bullet.direction[0];
@@ -184,38 +188,58 @@ struct BulletCollisionSystem {
 
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        //enable backtrace
+        std::env::set_var("RUST_BACKTRACE", "full");
         let mut bullet_index = 0;
-        while bullet_index < entities_and_components.get_entity_count() {
+        // needs to be done this way because entity count changes as bullets are removed
+        while bullet_index < entities_and_components.get_entity_count_with_component::<Bullet>() {
             // if multiple bullets spawn at the same time, this could cause a problem
-            let self_entity = entities_and_components.get_entity(bullet_index).unwrap(); // can't fail unless multithreaded
-            if let Some(_) = entities_and_components.try_get_component::<Bullet>(self_entity) {
-                let (self_transform,) =
-                    get_components!(entities_and_components, self_entity, Transform);
-                // this is a very inefficient way to do this, but this serves as a good incentive to implement a collision system in the engine
-                for other_entity_index in 0..entities_and_components.get_entity_count() {
-                    let other_entity = entities_and_components
-                        .get_entity(other_entity_index)
-                        .unwrap(); // can't fail unless multithreaded
-                    if let Some(_) =
-                        entities_and_components.try_get_component::<Enemy>(other_entity)
-                    {
-                        let (other_transform,) =
-                            get_components!(entities_and_components, other_entity, Transform);
-                        let distance = ((self_transform.x - other_transform.x).powi(2)
-                            + (self_transform.y - other_transform.y).powi(2))
-                        .sqrt();
-                        if distance < 5.0 {
-                            entities_and_components.remove_entity(self_entity);
-                            entities_and_components.remove_entity(other_entity);
-                            if self.enemies_killed - self.last_upgrade == 5 {
-                                upgrade_player(entities_and_components, self.player_entity);
-                                self.last_upgrade = self.enemies_killed;
-                            }
-                            break;
-                        }
-                    }
+            let self_entity = entities_and_components
+                .get_nth_entity_with_component::<Bullet>(bullet_index)
+                .unwrap(); // can't fail unless multithreaded
+
+            let (self_transform,) =
+                get_components!(entities_and_components, self_entity, Transform);
+
+            // this is a very inefficient way to do this, but this serves as a good incentive to implement a collision system in the engine
+            let mut enemy_index = 0;
+            while enemy_index < entities_and_components.get_entity_count_with_component::<Enemy>() {
+                let enemy = entities_and_components
+                    .get_nth_entity_with_component::<Enemy>(enemy_index)
+                    .unwrap(); // can't fail unless multithreaded
+
+                let enemy_1 = enemy.clone();
+
+                if entities_and_components
+                    .try_get_component::<Enemy>(enemy)
+                    .is_none()
+                {
+                    panic!("wtfff");
                 }
+
+                let enemy_2 = enemy.clone();
+                if enemy_1 != enemy_2 {
+                    panic!("wtfff");
+                }
+
+                // panic here
+                let (other_transform,) = get_components!(entities_and_components, enemy, Transform);
+                let distance = ((self_transform.x - other_transform.x).powi(2)
+                    + (self_transform.y - other_transform.y).powi(2))
+                .sqrt();
+
+                if distance < 5.0 {
+                    entities_and_components.remove_entity(self_entity);
+                    entities_and_components.remove_entity(enemy);
+                    if self.enemies_killed - self.last_upgrade == 5 {
+                        upgrade_player(entities_and_components, self.player_entity);
+                        self.last_upgrade = self.enemies_killed;
+                    }
+                    break;
+                }
+                enemy_index += 1;
             }
+
             bullet_index += 1;
         }
     }
@@ -229,7 +253,9 @@ struct EnemyMovementSystem {
 impl System for EnemyMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         for entity_index in 0..entities_and_components.get_entity_count() {
-            let self_entity = entities_and_components.get_entity(entity_index).unwrap(); // can't fail unless multithreaded
+            let self_entity = entities_and_components
+                .get_nth_entity(entity_index)
+                .unwrap(); // can't fail unless multithreaded
             if let Some(_) = entities_and_components.try_get_component::<Enemy>(self_entity) {
                 /*
                     this is how it would work ideally, but for now it is not possible
@@ -295,7 +321,7 @@ impl System for EnemySpawnerSystem {
             entities_and_components.add_component_to(enemy_entity, Enemy { health: 1 });
             self.last_spawn = Instant::now();
             for i in 0..entities_and_components.get_entity_count() {
-                let entity = entities_and_components.get_entity(i).unwrap();
+                let entity = entities_and_components.get_nth_entity(i).unwrap();
                 if let Some(_) = entities_and_components.try_get_component::<Player>(entity) {
                     upgrade_player(entities_and_components, entity)
                 }
@@ -385,8 +411,6 @@ fn main() {
             }));
     }
 
-    let mut frames_performed: u128 = 0;
-    let start_time = Instant::now();
     loop {
         let run_start = Instant::now();
         scene.game_engine.run();
@@ -396,14 +420,5 @@ fn main() {
             &scene.game_engine.entities_and_components,
             &scene.scene_params,
         );
-
-        if frames_performed > 100000 {
-            println!(
-                "fps: {}",
-                frames_performed as f32 / start_time.elapsed().as_secs_f32()
-            );
-            break;
-        }
-        frames_performed += 1;
     }
 }
