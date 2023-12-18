@@ -6,73 +6,75 @@ It might be blazingly fast 🚀... tbd
 Note: This is subject to change, these docs could be outdated. Just bug me and I will update them for you.
 ## Rendering an object
 ``` rust
-use console_renderer::*;
+// this highlights some major issues with the current renderer
+use ABC_Game_Engine::*;
 
-//First make a struct for your object
+// implement a system
+struct SpinSystem {}
 
-struct Ball {
-    transform: Transform,
-    sprite: Sprite,
-    // anything else can be added here as well
+impl System for SpinSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        for i in 0..entities_and_components.get_entity_count() {
+            let entity = entities_and_components.get_entity(i).unwrap();
+            entities_and_components
+                .get_component_mut::<Transform>(entity)
+                .rotation += 1.0;
+        }
+    }
 }
 
-//Every object needs the Object trait implemented
+// Note: this does not work in vscode terminal, but it does work in the windows terminal
+fn main() {
+    let mut renderer = Renderer::new(320, 160);
+    // stretch is in case you can't change the line height of your terminal
+    renderer.set_stretch(1.0);
+    // make a scene to store our systems and objects
+    let mut scene = Scene::new();
+    // add the system
+    scene.game_engine.add_system(Box::new(SpinSystem {}));
+    {
+        // how we interact with the entities and components
+        // needs to be separate from the scene to avoid borrowing issues
+        let mut entities_and_components = &mut scene.game_engine.entities_and_components;
 
-impl Object for Ball {
-    fn get_sprite(&self) -> &Sprite {
-        &self.sprite
-    }
+        scene.scene_params.set_background_color(Color {
+            r: 100,
+            g: 0,
+            b: 0,
+            a: 0.0,
+        });
 
-    fn get_transform(&self) -> &Transform {
-        &self.transform
-    }
+        scene.scene_params.set_random_chars(true);
 
-    // This is where we would put update if we had one
-}
-
-fn main()
-{
-    //Instantiating the object
-    //first, let's make the sprite for our object
-    
-    let circle_sprite = Circle {
-            radius: 5.0,
-            color: Color {
-                r: 255,
-                g: 0,
-                b: 0,
-                a: 1.0,
-            },
+        let sprite = Image {
+            texture: load_texture("Sample_Images/sprite.png"),
         };
-    //now we instantiate the struct we made for our object
-    
-    let circle_object = Ball {
-        transform: Transform {
-            x: 10.0,
-            y: 20.0,
-            rotation: 0.0,
-            scale: 1.0,
-        },
-        sprite: circle_sprite.into(),
-    };
-    
-    //Let's make a scene to put our object into
-    
-    let mut main_scene = Scene::new();
-    
-    //And a renderer to render it in
-    
-    let renderer = Renderer::new(80, 40);
-    
-    //now we can add the object to our scene
-    //Note: The order in which they are added is the order they will be rendered in
-    
-    main_scene.add_object(circle_object);
-    
-    //Finally, we can now render to our heart's content 
-    //Note: every time render is called update is also called
-    
-    renderer.render(&mut main_scene);
+
+        let sprite_object = entities_and_components.add_entity();
+        entities_and_components.add_component_to(plague_mask_object, Sprite::Image(sprite));
+        entities_and_components.add_component_to(
+            plague_mask_object,
+            Transform {
+                x: 20.0,
+                y: 20.0,
+                rotation: 0.0,
+                scale: 2.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+        );
+    }
+
+    loop {
+        //Run all the systems
+        scene.game_engine.run();
+
+        // render the scene
+        renderer.render(
+            &scene.game_engine.entities_and_components,
+            &scene.scene_params,
+        );
+    }
 }
 ```
 
