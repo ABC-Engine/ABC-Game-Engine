@@ -1,22 +1,16 @@
-#![doc = include_str!("../README.md")]
+//#![doc = include_str!("../README.md")]
 
-use colored::Colorize;
-use crossterm::cursor;
 mod input;
 mod shape_renderer;
+mod test;
 pub use shape_renderer::*;
 mod load_texture;
 pub use crossterm::event::KeyCode;
 pub use input::*;
 pub use load_texture::*;
-use rand::Rng;
 mod renderer;
 pub use renderer::*;
-use std::rc::Rc;
-use std::{
-    clone,
-    io::{stderr, Write},
-};
+
 pub use ABC_ECS::{
     get_components, get_components_mut, Component, EntitiesAndComponents, Entity, GameEngine,
     System,
@@ -167,6 +161,18 @@ impl SceneParams {
     }
 }
 
+struct InputUpdateSystem {}
+
+impl System for InputUpdateSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let input_entities = entities_and_components.get_entities_with_component::<Input>();
+        let input_entity = input_entities[0];
+        // there should only be one input component
+        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);
+        input.update();
+    }
+}
+
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
     pub game_engine: GameEngine,
@@ -175,7 +181,7 @@ pub struct Scene {
 
 impl Scene {
     pub fn new() -> Scene {
-        Scene {
+        let mut scene = Scene {
             game_engine: GameEngine::new(),
             scene_params: SceneParams {
                 background_color: Color {
@@ -187,6 +193,14 @@ impl Scene {
                 is_random_chars: false,
                 character: '=',
             },
-        }
+        };
+
+        let inputs = scene.game_engine.entities_and_components.add_entity();
+        scene
+            .game_engine
+            .entities_and_components
+            .add_component_to(inputs, Input::new());
+        scene.game_engine.add_system(Box::new(InputUpdateSystem {}));
+        scene
     }
 }

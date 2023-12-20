@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "ABC-ECS"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anymap",
  "slotmap",
@@ -20,6 +20,7 @@ dependencies = [
  "dioxus-debug-cell",
  "image",
  "rand",
+ "winput",
 ]
 
 [[package]]
@@ -720,6 +721,15 @@ name = "windows_x86_64_msvc"
 version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
+
+[[package]]
+name = "winput"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd4bec39938e0ae68b300e2a4197b6437f13d53d1c146c6e297e346a71d5dde9"
+dependencies = [
+ "winapi",
+]
 
 [[package]]
 name = "zune-inflate"

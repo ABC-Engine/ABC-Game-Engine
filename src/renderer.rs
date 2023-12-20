@@ -60,40 +60,74 @@ impl Renderer {
     ) {
         // could possibly be done multithreaded and combine layers afterward
         for i in 0..entities_and_components.get_entity_count() {
-            let (sprite, transform) = ABC_ECS::get_components!(
+            let (sprite, transform) = ABC_ECS::try_get_components!(
                 entities_and_components,
                 entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
                 Sprite,
                 Transform
             );
-
-            // check if object is circle or rectangle
-            match sprite {
-                Sprite::Circle(circle) => render_circle(
-                    &circle,
-                    &(transform + &transform_offset),
-                    pixel_grid,
-                    self.stretch,
-                ),
-                Sprite::Rectangle(rectangle) => render_rectangle(
-                    &rectangle,
-                    &(transform + &transform_offset),
-                    pixel_grid,
-                    self.stretch,
-                ),
-                Sprite::Image(image) => render_texture(
-                    &image.texture,
-                    &(transform + &transform_offset),
-                    pixel_grid,
-                    self.stretch,
-                ),
+            // if the object doesn't have a sprite or transform, don't render it
+            if let (Some(sprite), Some(transform)) = (sprite, transform) {
+                // check if object is circle or rectangle
+                match sprite {
+                    Sprite::Circle(circle) => render_circle(
+                        &circle,
+                        &(transform + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                    Sprite::Rectangle(rectangle) => render_rectangle(
+                        &rectangle,
+                        &(transform + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                    Sprite::Image(image) => render_texture(
+                        &image.texture,
+                        &(transform + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                }
+            } else if let Some(sprite) = sprite {
+                match sprite {
+                    Sprite::Circle(circle) => render_circle(
+                        &circle,
+                        &(&Transform::default() + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                    Sprite::Rectangle(rectangle) => render_rectangle(
+                        &rectangle,
+                        &(&Transform::default() + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                    Sprite::Image(image) => render_texture(
+                        &image.texture,
+                        &(&Transform::default() + &transform_offset),
+                        pixel_grid,
+                        self.stretch,
+                    ),
+                }
             }
-            if let Some(children) = entities_and_components
+
+            // if the object has a transform and children, render the children with the transform as an offset
+            if let (Some(children), Some(transform)) = (
+                entities_and_components.try_get_component::<EntitiesAndComponents>(
+                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
+                ),
+                transform,
+            ) {
+                self.render_objects(&children, pixel_grid, transform + &transform_offset);
+            }
+            // if the object has children but no transform, render the children without any offset
+            else if let Some(children) = entities_and_components
                 .try_get_component::<EntitiesAndComponents>(
                     entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
                 )
             {
-                self.render_objects(&children, pixel_grid, transform + &transform_offset);
+                self.render_objects(&children, pixel_grid, transform_offset);
             }
         }
     }

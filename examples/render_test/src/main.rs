@@ -9,7 +9,7 @@ struct SpinSystem {}
 impl System for SpinSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         for i in 0..entities_and_components.get_entity_count() {
-            let entity = entities_and_components.get_entity(i).unwrap();
+            let entity = entities_and_components.get_nth_entity(i).unwrap();
             entities_and_components
                 .get_component_mut::<Transform>(entity)
                 .rotation += 1.0;

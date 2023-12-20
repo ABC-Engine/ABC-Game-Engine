@@ -32,14 +32,26 @@ struct PlayerMovementSystem {
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let key = get_input();
+        let input_entities = entities_and_components.get_entities_with_component::<Input>();
+        let input_entity = input_entities[0];
+        // there should only be one input component
+        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);
+
         let transform = entities_and_components.get_component_mut::<Transform>(self.player_entity);
-        match key {
-            Option::Some(KeyCode::Char('w')) => transform.y -= 1.0,
-            Option::Some(KeyCode::Char('a')) => transform.x -= 1.0,
-            Option::Some(KeyCode::Char('s')) => transform.y += 1.0,
-            Option::Some(KeyCode::Char('d')) => transform.x += 1.0,
-            _ => {}
+
+        // this causes diagonal movement to be faster than cardinal movement
+        // but that is fine for this example
+        if input.is_key_pressed(Vk::W) {
+            transform.y -= 1.0;
+        }
+        if input.is_key_pressed(Vk::A) {
+            transform.x -= 1.0;
+        }
+        if input.is_key_pressed(Vk::S) {
+            transform.y += 1.0;
+        }
+        if input.is_key_pressed(Vk::D) {
+            transform.x += 1.0;
         }
     }
 }
@@ -166,16 +178,15 @@ struct BulletMovementSystem {
 
 impl System for BulletMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        for entity_index in 0..entities_and_components.get_entity_count() {
-            let self_entity = entities_and_components
-                .get_nth_entity(entity_index)
+        for entity_index in 0..entities_and_components.get_entity_count_with_component::<Bullet>() {
+            let bullet_entity = entities_and_components
+                .get_nth_entity_with_component::<Bullet>(entity_index)
                 .unwrap(); // can't fail unless multithreaded
-            let (self_transform,) =
-                get_components_mut!(entities_and_components, self_entity, Transform);
-            if let Some(bullet) = entities_and_components.try_get_component::<Bullet>(self_entity) {
-                self_transform.x -= self.bullet_speed * bullet.direction[0];
-                self_transform.y -= self.bullet_speed * bullet.direction[1];
-            }
+            let (bullet_transform, bullet) =
+                get_components_mut!(entities_and_components, bullet_entity, Transform, Bullet);
+
+            bullet_transform.x -= self.bullet_speed * bullet.direction[0];
+            bullet_transform.y -= self.bullet_speed * bullet.direction[1];
         }
     }
 }
@@ -188,8 +199,6 @@ struct BulletCollisionSystem {
 
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        //enable backtrace
-        std::env::set_var("RUST_BACKTRACE", "full");
         let mut bullet_index = 0;
         // needs to be done this way because entity count changes as bullets are removed
         while bullet_index < entities_and_components.get_entity_count_with_component::<Bullet>() {
@@ -412,7 +421,7 @@ fn main() {
     }
 
     loop {
-        let run_start = Instant::now();
+        std::env::set_var("RUST_BACKTRACE", "full");
         scene.game_engine.run();
 
         // should be implemented as a system later
