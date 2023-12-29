@@ -11,20 +11,14 @@ struct Player {
     bullets_at_once: u32,
 }
 
-impl Component for Player {}
-
 struct Enemy {
     health: u32,
 }
-
-impl Component for Enemy {}
 
 struct Bullet {
     damage: u32,
     direction: [f64; 2],
 }
-
-impl Component for Bullet {}
 
 struct PlayerMovementSystem {
     player_entity: Entity,
@@ -32,26 +26,44 @@ struct PlayerMovementSystem {
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let input_entities = entities_and_components.get_entities_with_component::<Input>();
+        /*let input_entities = entities_and_components.get_entities_with_component::<Input>();
         let input_entity = input_entities[0];
         // there should only be one input component
-        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);
+        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);*/
+        let mut normalized_dir: [f64; 2] = [0.0, 0.0];
+        {
+            let input = entities_and_components
+                .get_resource::<Input>()
+                .expect("failed to get input");
 
-        let transform = entities_and_components.get_component_mut::<Transform>(self.player_entity);
+            // this causes diagonal movement to be faster than cardinal movement
+            // but that is fine for this example
+            if input.is_key_pressed(Vk::W) {
+                normalized_dir[1] -= 1.0;
+            }
+            if input.is_key_pressed(Vk::A) {
+                normalized_dir[0] -= 1.0;
+            }
+            if input.is_key_pressed(Vk::S) {
+                normalized_dir[1] += 1.0;
+            }
+            if input.is_key_pressed(Vk::D) {
+                normalized_dir[0] += 1.0;
+            }
+        }
 
-        // this causes diagonal movement to be faster than cardinal movement
-        // but that is fine for this example
-        if input.is_key_pressed(Vk::W) {
-            transform.y -= 1.0;
-        }
-        if input.is_key_pressed(Vk::A) {
-            transform.x -= 1.0;
-        }
-        if input.is_key_pressed(Vk::S) {
-            transform.y += 1.0;
-        }
-        if input.is_key_pressed(Vk::D) {
-            transform.x += 1.0;
+        {
+            let (transform,) =
+                entities_and_components.get_components_mut::<(Transform,)>(self.player_entity);
+
+            let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
+
+            if magnitude != 0.0 {
+                normalized_dir = [normalized_dir[0] / magnitude, normalized_dir[1] / magnitude];
+            }
+
+            transform.x += normalized_dir[0];
+            transform.y += normalized_dir[1];
         }
     }
 }
@@ -65,73 +77,86 @@ struct PlayerShootingSystem {
 impl System for PlayerShootingSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         if self.last_shot.elapsed().as_millis() / 1000 > self.shot_rate {
-            let (player_transform, player_component) = get_components!(
-                entities_and_components,
-                self.player_entity,
-                Transform,
-                Player
-            );
-
-            // check if there is an enemy in the scene and if so, get the normalized direction vector to the closest one
-            // otherwise, return
-            let mut closest_enemies_dirs: Vec<[f64; 2]> = vec![];
+            let bullets_to_fire: u32;
+            let player_transform_copy: Transform;
+            let mut closest_enemies_dirs: Vec<[f64; 2]>;
             {
-                // ordered largest to smallest
-                let mut closest_enemies: Vec<(Entity, f64)> = vec![];
+                let (player_transform, player_component) = entities_and_components
+                    .get_components::<(Transform, Player)>(self.player_entity);
 
-                for entity_index in 0..entities_and_components.get_entity_count() {
-                    let other_entity = entities_and_components
-                        .get_nth_entity(entity_index)
-                        .unwrap(); // can't fail unless multithreaded
-                    if let Some(_) =
-                        entities_and_components.try_get_component::<Enemy>(other_entity)
-                    {
-                        let (other_transform,) =
-                            get_components!(entities_and_components, other_entity, Transform);
-                        let distance = ((player_transform.x - other_transform.x).powi(2)
-                            + (player_transform.y - other_transform.y).powi(2))
-                        .sqrt();
-                        if closest_enemies.len() == 0 {
-                            closest_enemies = vec![(other_entity, distance)];
-                        } else {
-                            for (i, enemies) in closest_enemies.clone().into_iter().enumerate() {
-                                if distance < enemies.1 {
-                                    closest_enemies.insert(i, (other_entity, distance))
+                // check if there is an enemy in the scene and if so, get the normalized direction vector to the closest one
+                // otherwise, return
+                closest_enemies_dirs = vec![];
+                {
+                    // ordered largest to smallest
+                    let mut closest_enemies: Vec<(Entity, f64)> = vec![];
+
+                    for entity_index in 0..entities_and_components.get_entity_count() {
+                        let other_entity = entities_and_components
+                            .get_nth_entity(entity_index)
+                            .unwrap(); // can't fail unless multithreaded
+                        if let Some(_) =
+                            entities_and_components.try_get_component::<Enemy>(other_entity)
+                        {
+                            //let (other_transform,) =
+                            //    get_components!(entities_and_components, other_entity, Transform);
+
+                            let (other_transform,) = entities_and_components
+                                .get_components::<(Transform,)>(other_entity); // can't fail unless multithreaded
+
+                            let distance = ((player_transform.x - other_transform.x).powi(2)
+                                + (player_transform.y - other_transform.y).powi(2))
+                            .sqrt();
+                            if closest_enemies.len() == 0 {
+                                closest_enemies = vec![(other_entity, distance)];
+                            } else {
+                                for (i, enemies) in closest_enemies.clone().into_iter().enumerate()
+                                {
+                                    if distance < enemies.1 {
+                                        closest_enemies.insert(i, (other_entity, distance))
+                                    }
                                 }
                             }
                         }
                     }
+                    for i in 0..player_component
+                        .bullets_at_once
+                        .min(closest_enemies.len() as u32)
+                    {
+                        /*let (closest_enemy_transform,) = get_components!(
+                            entities_and_components,
+                            closest_enemies.iter().nth(i as usize).unwrap().0,
+                            Transform
+                        );*/
+
+                        let (closest_enemy_transform,) = entities_and_components
+                            .get_components::<(Transform,)>(
+                                closest_enemies.iter().nth(i as usize).unwrap().0,
+                            );
+
+                        let mut closest_enemy_dir = [
+                            player_transform.x - closest_enemy_transform.x,
+                            player_transform.y - closest_enemy_transform.y,
+                        ];
+                        let magnitude =
+                            (closest_enemy_dir[0].powi(2) + closest_enemy_dir[1].powi(2)).sqrt();
+                        closest_enemy_dir = [
+                            closest_enemy_dir[0] / magnitude,
+                            closest_enemy_dir[1] / magnitude,
+                        ];
+                        closest_enemies_dirs.push(closest_enemy_dir)
+                    }
                 }
-                for i in 0..player_component
+                bullets_to_fire = player_component
                     .bullets_at_once
-                    .min(closest_enemies.len() as u32)
-                {
-                    let (closest_enemy_transform,) = get_components!(
-                        entities_and_components,
-                        closest_enemies.iter().nth(i as usize).unwrap().0,
-                        Transform
-                    );
-                    let mut closest_enemy_dir = [
-                        player_transform.x - closest_enemy_transform.x,
-                        player_transform.y - closest_enemy_transform.y,
-                    ];
-                    let magnitude =
-                        (closest_enemy_dir[0].powi(2) + closest_enemy_dir[1].powi(2)).sqrt();
-                    closest_enemy_dir = [
-                        closest_enemy_dir[0] / magnitude,
-                        closest_enemy_dir[1] / magnitude,
-                    ];
-                    closest_enemies_dirs.push(closest_enemy_dir)
-                }
+                    .min(closest_enemies_dirs.len() as u32);
+                player_transform_copy = player_transform.clone();
             }
 
-            for i in 0..player_component
-                .bullets_at_once
-                .min(closest_enemies_dirs.len() as u32)
-            {
+            for i in 0..bullets_to_fire {
                 spawn_bullet(
                     entities_and_components,
-                    [player_transform.x, player_transform.y],
+                    [player_transform_copy.x, player_transform_copy.y],
                     *closest_enemies_dirs.iter().nth(i as usize).unwrap(),
                 )
             }
@@ -178,12 +203,15 @@ struct BulletMovementSystem {
 
 impl System for BulletMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        for entity_index in 0..entities_and_components.get_entity_count_with_component::<Bullet>() {
-            let bullet_entity = entities_and_components
-                .get_nth_entity_with_component::<Bullet>(entity_index)
-                .unwrap(); // can't fail unless multithreaded
+        let entities_with_bullets = entities_and_components
+            .get_entities_with_component::<Bullet>()
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<Entity>>();
+        for bullet_entity in entities_with_bullets {
             let (bullet_transform, bullet) =
-                get_components_mut!(entities_and_components, bullet_entity, Transform, Bullet);
+                entities_and_components.get_components_mut::<(Transform, Bullet)>(bullet_entity); // can't fail unless multithreaded
 
             bullet_transform.x -= self.bullet_speed * bullet.direction[0];
             bullet_transform.y -= self.bullet_speed * bullet.direction[1];
@@ -200,56 +228,47 @@ struct BulletCollisionSystem {
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         let mut bullet_index = 0;
+        let entities_with_bullets = entities_and_components
+            .get_entities_with_component::<Bullet>()
+            .into_iter()
+            .flatten()
+            .cloned()
+            .collect::<Vec<Entity>>();
+
         // needs to be done this way because entity count changes as bullets are removed
-        while bullet_index < entities_and_components.get_entity_count_with_component::<Bullet>() {
-            // if multiple bullets spawn at the same time, this could cause a problem
-            let self_entity = entities_and_components
-                .get_nth_entity_with_component::<Bullet>(bullet_index)
-                .unwrap(); // can't fail unless multithreaded
+        for self_entity in entities_with_bullets {
+            if let Some(self_transform) =
+                entities_and_components.try_get_component::<Transform>(self_entity)
+            {
+                // this is a very inefficient way to do this, but this serves as a good incentive to implement a collision system in the engine
+                let mut enemy_index = 0;
+                let mut enemy_entities = entities_and_components
+                    .get_entities_with_component::<Enemy>()
+                    .into_iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<Entity>>();
 
-            let (self_transform,) =
-                get_components!(entities_and_components, self_entity, Transform);
+                for enemy_entity in enemy_entities {
+                    if let Some(other_transform) =
+                        entities_and_components.try_get_component::<Transform>(enemy_entity)
+                    {
+                        let distance = ((self_transform.x - other_transform.x).powi(2)
+                            + (self_transform.y - other_transform.y).powi(2))
+                        .sqrt();
 
-            // this is a very inefficient way to do this, but this serves as a good incentive to implement a collision system in the engine
-            let mut enemy_index = 0;
-            while enemy_index < entities_and_components.get_entity_count_with_component::<Enemy>() {
-                let enemy = entities_and_components
-                    .get_nth_entity_with_component::<Enemy>(enemy_index)
-                    .unwrap(); // can't fail unless multithreaded
-
-                let enemy_1 = enemy.clone();
-
-                if entities_and_components
-                    .try_get_component::<Enemy>(enemy)
-                    .is_none()
-                {
-                    panic!("wtfff");
-                }
-
-                let enemy_2 = enemy.clone();
-                if enemy_1 != enemy_2 {
-                    panic!("wtfff");
-                }
-
-                // panic here
-                let (other_transform,) = get_components!(entities_and_components, enemy, Transform);
-                let distance = ((self_transform.x - other_transform.x).powi(2)
-                    + (self_transform.y - other_transform.y).powi(2))
-                .sqrt();
-
-                if distance < 5.0 {
-                    entities_and_components.remove_entity(self_entity);
-                    entities_and_components.remove_entity(enemy);
-                    if self.enemies_killed - self.last_upgrade == 5 {
-                        upgrade_player(entities_and_components, self.player_entity);
-                        self.last_upgrade = self.enemies_killed;
+                        if distance < 5.0 {
+                            entities_and_components.remove_entity(self_entity);
+                            entities_and_components.remove_entity(enemy_entity);
+                            if self.enemies_killed - self.last_upgrade == 5 {
+                                upgrade_player(entities_and_components, self.player_entity);
+                                self.last_upgrade = self.enemies_killed;
+                            }
+                            break;
+                        }
                     }
-                    break;
                 }
-                enemy_index += 1;
             }
-
-            bullet_index += 1;
         }
     }
 }
@@ -273,13 +292,17 @@ impl System for EnemyMovementSystem {
                     let mut self_transform =
                         entities_and_components.get_component_mut::<Transform>(self_entity);
                 */
+                let player_transform: Transform;
 
-                // this is kind of a hacky way to do it, and could encourage unsafe code
-                let (player_transform,) =
-                    get_components!(entities_and_components, self.player_entity, Transform);
+                {
+                    player_transform = entities_and_components
+                        .get_components::<(Transform,)>(self.player_entity)
+                        .0
+                        .clone();
+                }
 
-                let (mut self_transform,) =
-                    get_components_mut!(entities_and_components, self_entity, Transform);
+                let (self_transform,) =
+                    entities_and_components.get_components_mut::<(Transform,)>(self_entity); // can't fail unless multithreaded
 
                 let normalized_dir = [
                     player_transform.x - self_transform.x,
@@ -341,7 +364,7 @@ impl System for EnemySpawnerSystem {
 }
 
 fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: Entity) {
-    let player_component = entities_and_components.get_component_mut::<Player>(player);
+    let (player_component,) = entities_and_components.get_components_mut::<(Player,)>(player);
     player_component.bullets_at_once += 1;
 }
 

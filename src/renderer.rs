@@ -5,7 +5,7 @@ use colored::Colorize;
 use crossterm::cursor;
 use rand::Rng;
 use std::{io::Write, vec};
-use ABC_ECS::{EntitiesAndComponents, Entity};
+use ABC_ECS::{EntitiesAndComponents, Entity, TryComponentsRef};
 
 /// Renderer is responsible for rendering the scene
 pub struct Renderer {
@@ -60,12 +60,10 @@ impl Renderer {
     ) {
         // could possibly be done multithreaded and combine layers afterward
         for i in 0..entities_and_components.get_entity_count() {
-            let (sprite, transform) = ABC_ECS::try_get_components!(
-                entities_and_components,
-                entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
-                Sprite,
-                Transform
-            );
+            let (sprite, transform) = entities_and_components
+                .try_get_components::<(Sprite, Transform)>(
+                    entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
+                );
             // if the object doesn't have a sprite or transform, don't render it
             if let (Some(sprite), Some(transform)) = (sprite, transform) {
                 // check if object is circle or rectangle

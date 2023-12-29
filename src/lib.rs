@@ -11,10 +11,7 @@ pub use load_texture::*;
 mod renderer;
 pub use renderer::*;
 
-pub use ABC_ECS::{
-    get_components, get_components_mut, Component, EntitiesAndComponents, Entity, GameEngine,
-    System,
-};
+pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
@@ -81,8 +78,6 @@ impl Transform {
     }
 }
 
-impl Component for Transform {}
-
 /// a is the parent
 impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
     type Output = Transform;
@@ -106,8 +101,6 @@ pub enum Sprite {
     Rectangle(Rectangle),
     Image(Image),
 }
-
-impl Component for Sprite {}
 
 impl From<Circle> for Sprite {
     fn from(circle: Circle) -> Self {
@@ -161,18 +154,6 @@ impl SceneParams {
     }
 }
 
-struct InputUpdateSystem {}
-
-impl System for InputUpdateSystem {
-    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let input_entities = entities_and_components.get_entities_with_component::<Input>();
-        let input_entity = input_entities[0];
-        // there should only be one input component
-        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);
-        input.update();
-    }
-}
-
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
     pub game_engine: GameEngine,
@@ -195,12 +176,18 @@ impl Scene {
             },
         };
 
-        let inputs = scene.game_engine.entities_and_components.add_entity();
+        /*let inputs = scene.game_engine.entities_and_components.add_entity();
         scene
             .game_engine
             .entities_and_components
             .add_component_to(inputs, Input::new());
-        scene.game_engine.add_system(Box::new(InputUpdateSystem {}));
+        scene.game_engine.add_system(Box::new(InputUpdateSystem {}));*/
+
+        scene
+            .game_engine
+            .entities_and_components
+            .add_resource(Input::new());
+
         scene
     }
 }
