@@ -1,13 +1,13 @@
 //#![doc = include_str!("../README.md")]
 
-mod input;
+mod resources;
 mod shape_renderer;
 mod test;
 pub use shape_renderer::*;
 mod load_texture;
 pub use crossterm::event::KeyCode;
-pub use input::*;
 pub use load_texture::*;
+pub use resources::*;
 mod renderer;
 pub use renderer::*;
 
@@ -176,17 +176,7 @@ impl Scene {
             },
         };
 
-        /*let inputs = scene.game_engine.entities_and_components.add_entity();
-        scene
-            .game_engine
-            .entities_and_components
-            .add_component_to(inputs, Input::new());
-        scene.game_engine.add_system(Box::new(InputUpdateSystem {}));*/
-
-        scene
-            .game_engine
-            .entities_and_components
-            .add_resource(Input::new());
+        add_default_resources(&mut scene);
 
         scene
     }

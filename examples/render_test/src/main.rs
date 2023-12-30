@@ -10,8 +10,6 @@ impl System for SpinSystem {
         // not efficient, but this is what has to be done for now
         let entities = entities_and_components
             .get_entities_with_component::<Transform>()
-            .into_iter()
-            .flatten()
             .cloned()
             .collect::<Vec<Entity>>();
 
@@ -24,8 +22,6 @@ impl System for SpinSystem {
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
-    // set backtrace
-    std::env::set_var("RUST_BACKTRACE", "0");
     let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();

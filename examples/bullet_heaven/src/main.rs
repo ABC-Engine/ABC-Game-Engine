@@ -9,6 +9,7 @@ const WINDOW_DIMS: (u32, u32) = (320, 320);
 struct Player {
     health: u32,
     bullets_at_once: u32,
+    speed: f64,
 }
 
 struct Enemy {
@@ -26,18 +27,27 @@ struct PlayerMovementSystem {
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        /*let input_entities = entities_and_components.get_entities_with_component::<Input>();
-        let input_entity = input_entities[0];
-        // there should only be one input component
-        let (input,) = get_components_mut!(entities_and_components, input_entity, Input);*/
+        let delta_time: f64;
+        {
+            delta_time = entities_and_components
+                .get_resource::<DeltaTime>()
+                .expect("failed to get delta time")
+                .delta_time;
+        }
+
+        let player_speed: f64;
+        {
+            let (player_component,) =
+                entities_and_components.get_components::<(Player,)>(self.player_entity);
+            player_speed = player_component.speed;
+        }
+
         let mut normalized_dir: [f64; 2] = [0.0, 0.0];
         {
             let input = entities_and_components
                 .get_resource::<Input>()
                 .expect("failed to get input");
 
-            // this causes diagonal movement to be faster than cardinal movement
-            // but that is fine for this example
             if input.is_key_pressed(Vk::W) {
                 normalized_dir[1] -= 1.0;
             }
@@ -62,8 +72,8 @@ impl System for PlayerMovementSystem {
                 normalized_dir = [normalized_dir[0] / magnitude, normalized_dir[1] / magnitude];
             }
 
-            transform.x += normalized_dir[0];
-            transform.y += normalized_dir[1];
+            transform.x += normalized_dir[0] * player_speed * delta_time;
+            transform.y += normalized_dir[1] * player_speed * delta_time;
         }
     }
 }
@@ -203,18 +213,24 @@ struct BulletMovementSystem {
 
 impl System for BulletMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let delta_time: f64;
+        {
+            delta_time = entities_and_components
+                .get_resource::<DeltaTime>()
+                .expect("failed to get delta time")
+                .delta_time;
+        }
+
         let entities_with_bullets = entities_and_components
             .get_entities_with_component::<Bullet>()
-            .into_iter()
-            .flatten()
             .cloned()
             .collect::<Vec<Entity>>();
         for bullet_entity in entities_with_bullets {
             let (bullet_transform, bullet) =
                 entities_and_components.get_components_mut::<(Transform, Bullet)>(bullet_entity); // can't fail unless multithreaded
 
-            bullet_transform.x -= self.bullet_speed * bullet.direction[0];
-            bullet_transform.y -= self.bullet_speed * bullet.direction[1];
+            bullet_transform.x -= self.bullet_speed * bullet.direction[0] * delta_time;
+            bullet_transform.y -= self.bullet_speed * bullet.direction[1] * delta_time;
         }
     }
 }
@@ -227,11 +243,8 @@ struct BulletCollisionSystem {
 
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let mut bullet_index = 0;
         let entities_with_bullets = entities_and_components
             .get_entities_with_component::<Bullet>()
-            .into_iter()
-            .flatten()
             .cloned()
             .collect::<Vec<Entity>>();
 
@@ -241,11 +254,8 @@ impl System for BulletCollisionSystem {
                 entities_and_components.try_get_component::<Transform>(self_entity)
             {
                 // this is a very inefficient way to do this, but this serves as a good incentive to implement a collision system in the engine
-                let mut enemy_index = 0;
-                let mut enemy_entities = entities_and_components
+                let enemy_entities = entities_and_components
                     .get_entities_with_component::<Enemy>()
-                    .into_iter()
-                    .flatten()
                     .cloned()
                     .collect::<Vec<Entity>>();
 
@@ -280,6 +290,13 @@ struct EnemyMovementSystem {
 
 impl System for EnemyMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let delta_time: f64;
+        {
+            delta_time = entities_and_components
+                .get_resource::<DeltaTime>()
+                .expect("failed to get delta time")
+                .delta_time;
+        }
         for entity_index in 0..entities_and_components.get_entity_count() {
             let self_entity = entities_and_components
                 .get_nth_entity(entity_index)
@@ -310,8 +327,8 @@ impl System for EnemyMovementSystem {
                 ];
                 let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
                 let normalized_dir = [normalized_dir[0] / magnitude, normalized_dir[1] / magnitude];
-                self_transform.x += normalized_dir[0] * self.enemy_speed;
-                self_transform.y += normalized_dir[1] * self.enemy_speed;
+                self_transform.x += normalized_dir[0] * self.enemy_speed * delta_time;
+                self_transform.y += normalized_dir[1] * self.enemy_speed * delta_time;
             }
         }
     }
@@ -375,7 +392,7 @@ fn main() {
     let mut scene = Scene::new();
     let player_object: Entity;
     {
-        let mut entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.game_engine.entities_and_components;
 
         scene.scene_params.set_background_color(Color {
             r: 100,
@@ -408,6 +425,7 @@ fn main() {
             Player {
                 health: 100,
                 bullets_at_once: 1,
+                speed: 10.0,
             },
         )
     }
@@ -420,7 +438,7 @@ fn main() {
         }));
         scene.game_engine.add_system(Box::new(EnemyMovementSystem {
             player_entity: player_object,
-            enemy_speed: 0.1,
+            enemy_speed: 10.0,
         }));
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
             last_spawn: Instant::now(),
@@ -431,9 +449,9 @@ fn main() {
             last_shot: Instant::now(),
             shot_rate: 1,
         }));
-        scene
-            .game_engine
-            .add_system(Box::new(BulletMovementSystem { bullet_speed: 1.0 }));
+        scene.game_engine.add_system(Box::new(BulletMovementSystem {
+            bullet_speed: 100.0,
+        }));
         scene
             .game_engine
             .add_system(Box::new(BulletCollisionSystem {
