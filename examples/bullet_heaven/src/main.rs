@@ -3,6 +3,8 @@ use rand::Rng;
 /// not yet complete
 use std::{time::Instant, vec};
 use ABC_Game_Engine::*;
+mod xp;
+use xp::*;
 
 const WINDOW_DIMS: (u32, u32) = (320, 320);
 
@@ -10,6 +12,7 @@ struct Player {
     health: u32,
     bullets_at_once: u32,
     speed: f64,
+    xp: u32,
 }
 
 struct Enemy {
@@ -235,11 +238,7 @@ impl System for BulletMovementSystem {
     }
 }
 
-struct BulletCollisionSystem {
-    player_entity: Entity,
-    enemies_killed: u32,
-    last_upgrade: u32,
-}
+struct BulletCollisionSystem {}
 
 impl System for BulletCollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
@@ -268,12 +267,13 @@ impl System for BulletCollisionSystem {
                         .sqrt();
 
                         if distance < 5.0 {
+                            spawn_xp_orb(
+                                entities_and_components,
+                                [other_transform.x, other_transform.y],
+                                1,
+                            );
                             entities_and_components.remove_entity(self_entity);
                             entities_and_components.remove_entity(enemy_entity);
-                            if self.enemies_killed - self.last_upgrade == 5 {
-                                upgrade_player(entities_and_components, self.player_entity);
-                                self.last_upgrade = self.enemies_killed;
-                            }
                             break;
                         }
                     }
@@ -369,20 +369,9 @@ impl System for EnemySpawnerSystem {
             );
             entities_and_components.add_component_to(enemy_entity, Enemy { health: 1 });
             self.last_spawn = Instant::now();
-            for i in 0..entities_and_components.get_entity_count() {
-                let entity = entities_and_components.get_nth_entity(i).unwrap();
-                if let Some(_) = entities_and_components.try_get_component::<Player>(entity) {
-                    upgrade_player(entities_and_components, entity)
-                }
-            }
             self.spawn_rate = (self.spawn_rate as f32 * 0.95) as u128;
         }
     }
-}
-
-fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: Entity) {
-    let (player_component,) = entities_and_components.get_components_mut::<(Player,)>(player);
-    player_component.bullets_at_once += 1;
 }
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
@@ -425,7 +414,8 @@ fn main() {
             Player {
                 health: 100,
                 bullets_at_once: 1,
-                speed: 10.0,
+                speed: 20.0,
+                xp: 0,
             },
         )
     }
@@ -454,15 +444,24 @@ fn main() {
         }));
         scene
             .game_engine
-            .add_system(Box::new(BulletCollisionSystem {
+            .add_system(Box::new(BulletCollisionSystem {}));
+        scene.game_engine.add_system(Box::new(XpOrbMovementSystem {
+            player_entity: player_object,
+            orb_speed: 50.0,
+        }));
+        scene.game_engine.add_system(Box::new(XpOrbCollisionSystem {
+            player_entity: player_object,
+        }));
+        scene
+            .game_engine
+            .add_system(Box::new(PlayerUpgradingSystem {
                 player_entity: player_object,
-                enemies_killed: 0,
-                last_upgrade: 0,
+                next_upgrade: 10,
             }));
     }
 
     loop {
-        std::env::set_var("RUST_BACKTRACE", "full");
+        //std::env::set_var("RUST_BACKTRACE", "full");
         scene.game_engine.run();
 
         // should be implemented as a system later
