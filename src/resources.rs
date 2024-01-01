@@ -1,6 +1,6 @@
-mod input;
+pub mod input;
 pub use input::*;
-mod delta_time;
+pub mod delta_time;
 use crate::Scene;
 pub use delta_time::*;
 

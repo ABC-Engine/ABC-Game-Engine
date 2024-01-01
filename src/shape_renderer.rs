@@ -85,11 +85,6 @@ pub fn render_rectangle(
     }
 }
 
-#[derive(Clone)]
-pub struct Texture {
-    pub pixels: Vec<Vec<Color>>, // not sure how inefficient this is but it will do for now
-}
-
 pub fn render_texture(
     texture: &Texture,
     transform: &Transform,
@@ -130,7 +125,10 @@ pub fn render_texture(
                     continue;
                 }
 
-                let texture_pixel = &texture.pixels[texture_y_coord][texture_x_coord];
+                // TODO: this is a hacky fix for a bug where the texture is not being rendered correctly
+                // I don't think that min should need to be used, as it will add extra pixels to the texture
+                let texture_pixel = &texture.pixels[texture_y_coord.min(texture_height - 1)]
+                    [texture_x_coord.min(texture_width - 1)];
 
                 if texture_pixel.a == 1.0 {
                     *out_pixel = *texture_pixel;

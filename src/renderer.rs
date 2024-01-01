@@ -1,11 +1,77 @@
 use crate::{
-    render_circle, render_rectangle, render_texture, Color, Scene, SceneParams, Sprite, Transform,
+    render_circle, render_rectangle, render_texture, Color, Scene, SceneParams, Transform,
 };
 use colored::Colorize;
 use crossterm::cursor;
 use rand::Rng;
-use std::{io::Write, vec};
+use std::{
+    io::Write,
+    time::{Duration, Instant},
+    vec,
+};
 use ABC_ECS::{EntitiesAndComponents, Entity, TryComponentsRef};
+
+#[derive(Clone, Copy)]
+pub struct Circle {
+    pub radius: f64,
+    pub color: Color,
+}
+
+#[derive(Clone, Copy)]
+pub struct Rectangle {
+    pub width: f64,
+    pub height: f64,
+    pub color: Color,
+}
+
+#[derive(Clone)]
+pub struct Texture {
+    pub pixels: Vec<Vec<Color>>, // not sure how inefficient this is but it will do for now
+}
+
+// rectangle with texture
+#[derive(Clone)]
+pub struct Image {
+    // height and width are in texture
+    pub texture: Texture,
+}
+
+#[derive(Clone)]
+pub struct Animation {
+    pub frames: Vec<Image>,
+    pub current_frame: usize,
+    pub frame_time: Duration,
+    pub current_frame_start_time: Instant,
+    pub loop_animation: bool,
+    pub finished: bool,
+}
+
+/// Sprite is an enum that can be either a circle or a rectangle
+#[derive(Clone)]
+pub enum Sprite {
+    Circle(Circle),
+    Rectangle(Rectangle),
+    Image(Image),
+    Animation(Animation),
+}
+
+impl From<Circle> for Sprite {
+    fn from(circle: Circle) -> Self {
+        Sprite::Circle(circle)
+    }
+}
+
+impl From<Rectangle> for Sprite {
+    fn from(rectangle: Rectangle) -> Self {
+        Sprite::Rectangle(rectangle)
+    }
+}
+
+impl From<Image> for Sprite {
+    fn from(image: Image) -> Self {
+        Sprite::Image(image)
+    }
+}
 
 /// Renderer is responsible for rendering the scene
 pub struct Renderer {
@@ -44,7 +110,7 @@ impl Renderer {
     }
 
     ///  Renders the scene
-    pub fn render(&mut self, scene: &EntitiesAndComponents, scene_params: &SceneParams) {
+    pub fn render(&mut self, scene: &mut EntitiesAndComponents, scene_params: &SceneParams) {
         let mut pixel_grid =
             vec![vec![scene_params.background_color; self.width as usize]; self.height as usize];
 
@@ -54,91 +120,109 @@ impl Renderer {
 
     fn render_objects(
         &self,
-        entities_and_components: &EntitiesAndComponents,
+        entities_and_components: &mut EntitiesAndComponents,
         pixel_grid: &mut Vec<Vec<Color>>,
         transform_offset: Transform,
     ) {
         // could possibly be done multithreaded and combine layers afterward
         for i in 0..entities_and_components.get_entity_count() {
-            let (sprite, transform) = entities_and_components
-                .try_get_components::<(Sprite, Transform)>(
-                    entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
-                );
-            // if the object doesn't have a sprite or transform, don't render it
-            if let (Some(sprite), Some(transform)) = (sprite, transform) {
-                // check if object is circle or rectangle
-                match sprite {
-                    Sprite::Circle(circle) => render_circle(
-                        &circle,
-                        &(transform + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
-                    Sprite::Rectangle(rectangle) => render_rectangle(
-                        &rectangle,
-                        &(transform + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
-                    Sprite::Image(image) => render_texture(
-                        &image.texture,
-                        &(transform + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
-                }
-            } else if let Some(sprite) = sprite {
-                match sprite {
-                    Sprite::Circle(circle) => render_circle(
-                        &circle,
-                        &(&Transform::default() + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
-                    Sprite::Rectangle(rectangle) => render_rectangle(
-                        &rectangle,
-                        &(&Transform::default() + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
-                    Sprite::Image(image) => render_texture(
-                        &image.texture,
-                        &(&Transform::default() + &transform_offset),
-                        pixel_grid,
-                        self.stretch,
-                    ),
+            {
+                let (sprite, transform) = entities_and_components
+                    .try_get_components_mut::<(Sprite, Transform)>(
+                        entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
+                    );
+                // if the object doesn't have a sprite or transform, don't render it
+                match (sprite, transform) {
+                    (None, None) => continue,
+                    (Some(sprite), Some(transform)) => {
+                        let transform = &transform.clone();
+                        // check if object is circle or rectangle
+                        match sprite {
+                            Sprite::Circle(circle) => render_circle(
+                                &circle,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                            ),
+                            Sprite::Rectangle(rectangle) => render_rectangle(
+                                &rectangle,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                            ),
+                            Sprite::Image(image) => render_texture(
+                                &image.texture,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                            ),
+                            Sprite::Animation(animation) => {
+                                update_animation(animation);
+                                let current_frame = &animation.frames[animation.current_frame];
+                                render_texture(
+                                    &current_frame.texture,
+                                    &(transform + &transform_offset),
+                                    pixel_grid,
+                                    self.stretch,
+                                );
+                            }
+                        }
+                    }
+                    (Some(sprite), None) => match sprite {
+                        Sprite::Circle(circle) => render_circle(
+                            &circle,
+                            &(&Transform::default() + &transform_offset),
+                            pixel_grid,
+                            self.stretch,
+                        ),
+                        Sprite::Rectangle(rectangle) => render_rectangle(
+                            &rectangle,
+                            &(&Transform::default() + &transform_offset),
+                            pixel_grid,
+                            self.stretch,
+                        ),
+                        Sprite::Image(image) => render_texture(
+                            &image.texture,
+                            &(&Transform::default() + &transform_offset),
+                            pixel_grid,
+                            self.stretch,
+                        ),
+                        Sprite::Animation(animation) => {
+                            update_animation(animation);
+                            let current_frame = &animation.frames[animation.current_frame];
+                            render_texture(
+                                &current_frame.texture,
+                                &(&Transform::default() + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                            );
+                        }
+                    },
+                    _ => (),
                 }
             }
 
             // if the object has a transform and children, render the children with the transform as an offset
-            if let (Some(children), Some(transform)) = (
-                entities_and_components.try_get_component::<EntitiesAndComponents>(
-                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
-                ),
-                transform,
-            ) {
-                self.render_objects(&children, pixel_grid, transform + &transform_offset);
-            }
-            // if the object has children but no transform, render the children without any offset
-            else if let Some(children) = entities_and_components
-                .try_get_component::<EntitiesAndComponents>(
+            if let (Some(children), Some(transform)) = entities_and_components
+                .try_get_components_mut::<(EntitiesAndComponents, Transform)>(
                     entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
                 )
             {
-                self.render_objects(&children, pixel_grid, transform_offset);
+                let transform = &*transform;
+                self.render_objects(children, pixel_grid, transform + &transform_offset);
+            }
+            // if the object has children but no transform, render the children without any offset
+            else if let Some(children) = entities_and_components
+                .try_get_component_mut::<EntitiesAndComponents>(
+                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
+                )
+            {
+                self.render_objects(children, pixel_grid, transform_offset);
             }
         }
     }
 
     pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
-        /*crossterm::queue!(handle, cursor::Hide, cursor::MoveTo(0, 0))
-            .expect("Error: failed to move cursor to 0, 0");
-        crossterm::queue!(
-            handle,
-            crossterm::terminal::SetSize(pixel_grid.len() as u16, pixel_grid[0].len() as u16)
-        )
-        .expect("failed to set terminal size");*/
-
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {
@@ -173,5 +257,19 @@ impl Renderer {
 
         self.handle.flush().expect("failed to flush stdout");
         self.last_pixel_grid = pixel_grid.clone();
+    }
+}
+
+fn update_animation(animation: &mut Animation) {
+    if !animation.finished && animation.current_frame_start_time.elapsed() >= animation.frame_time {
+        animation.current_frame_start_time = Instant::now();
+        animation.current_frame += 1;
+        if animation.current_frame >= animation.frames.len() {
+            if animation.loop_animation {
+                animation.current_frame = 0;
+            } else {
+                animation.finished = true;
+            }
+        }
     }
 }

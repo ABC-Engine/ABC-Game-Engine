@@ -10,7 +10,7 @@ pub use load_texture::*;
 pub use resources::*;
 mod renderer;
 pub use renderer::*;
-
+pub use resources::{delta_time, input};
 pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,26 +30,6 @@ impl Default for Color {
             a: 1.0,
         }
     }
-}
-
-#[derive(Clone, Copy)]
-pub struct Circle {
-    pub radius: f64,
-    pub color: Color,
-}
-
-#[derive(Clone, Copy)]
-pub struct Rectangle {
-    pub width: f64,
-    pub height: f64,
-    pub color: Color,
-}
-
-// rectangle with texture
-#[derive(Clone)]
-pub struct Image {
-    // height and width are in texture
-    pub texture: Texture,
 }
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
@@ -91,32 +71,6 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
             origin_x: self.origin_x - other.x as f32,
             origin_y: self.origin_y - other.y as f32,
         }
-    }
-}
-
-/// Sprite is an enum that can be either a circle or a rectangle
-#[derive(Clone)]
-pub enum Sprite {
-    Circle(Circle),
-    Rectangle(Rectangle),
-    Image(Image),
-}
-
-impl From<Circle> for Sprite {
-    fn from(circle: Circle) -> Self {
-        Sprite::Circle(circle)
-    }
-}
-
-impl From<Rectangle> for Sprite {
-    fn from(rectangle: Rectangle) -> Self {
-        Sprite::Rectangle(rectangle)
-    }
-}
-
-impl From<Image> for Sprite {
-    fn from(image: Image) -> Self {
-        Sprite::Image(image)
     }
 }
 

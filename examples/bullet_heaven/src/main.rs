@@ -466,7 +466,7 @@ fn main() {
 
         // should be implemented as a system later
         renderer.render(
-            &scene.game_engine.entities_and_components,
+            &mut scene.game_engine.entities_and_components,
             &scene.scene_params,
         );
     }
