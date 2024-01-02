@@ -235,7 +235,7 @@ impl Renderer {
 
                 // \x08 is backspace
                 if pixel.a == 0.0 {
-                    write!(self.handle, "{}\x08", " ").expect("failed to write white space");
+                    write!(self.handle, "\x08{}", " ").expect("failed to write white space");
                 } else {
                     if scene_params.is_random_chars {
                         pixel_character +=
@@ -246,7 +246,7 @@ impl Renderer {
 
                     write!(
                         self.handle,
-                        "{}\x08",
+                        "\x08{}",
                         pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
                     )
                     .expect("failed to write pixel");

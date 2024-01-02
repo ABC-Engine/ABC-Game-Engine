@@ -118,17 +118,14 @@ pub fn render_texture(
             {
                 let out_pixel = &mut pixel_grid[y][x];
 
-                let texture_y_coord = (relative_y + texture_height as f64 / 2.0) as usize;
-                let texture_x_coord = (relative_x + texture_width as f64 / 2.0) as usize;
+                let texture_x_coord = (relative_x + (texture_width as f64 / 2.0).floor()) as usize;
+                let texture_y_coord = (relative_y + (texture_height as f64 / 2.0).floor()) as usize;
 
-                if texture_x_coord >= texture_height || texture_y_coord >= texture_width {
+                if texture_x_coord >= texture_width || texture_y_coord >= texture_height {
                     continue;
                 }
 
-                // TODO: this is a hacky fix for a bug where the texture is not being rendered correctly
-                // I don't think that min should need to be used, as it will add extra pixels to the texture
-                let texture_pixel = &texture.pixels[texture_y_coord.min(texture_height - 1)]
-                    [texture_x_coord.min(texture_width - 1)];
+                let texture_pixel = &texture.pixels[texture_y_coord][texture_x_coord];
 
                 if texture_pixel.a == 1.0 {
                     *out_pixel = *texture_pixel;

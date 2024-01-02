@@ -1,7 +1,7 @@
 // this highlights some major issues with the current renderer
 use ABC_Game_Engine::*;
 
-const WINDOW_DIMS: (u32, u32) = (160, 80);
+const WINDOW_DIMS: (u32, u32) = (80, 80);
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
@@ -12,10 +12,10 @@ fn main() {
         let entities_and_components = &mut scene.game_engine.entities_and_components;
 
         scene.scene_params.set_background_color(Color {
-            r: 100,
-            g: 0,
-            b: 0,
-            a: 0.0,
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 1.0,
         });
 
         scene.scene_params.set_random_chars(false);
@@ -28,7 +28,7 @@ fn main() {
             Transform {
                 x: 40.0,
                 y: 20.0,
-                scale: 2.0,
+                scale: 1.0,
                 rotation: 0.0,
                 origin_x: 0.0,
                 origin_y: 0.0,
