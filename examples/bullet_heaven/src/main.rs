@@ -7,21 +7,49 @@ mod xp;
 use xp::*;
 
 const WINDOW_DIMS: (u32, u32) = (320, 320);
+const PLAYER_HIT_BOX_RADIUS: f64 = 20.0;
 
 struct Player {
     health: u32,
     bullets_at_once: u32,
     speed: f64,
     xp: u32,
+    invincibility_time_ms: u128,
+    last_hit: Instant,
+    is_invincible: bool,
 }
 
+#[derive(Clone)]
 struct Enemy {
     health: u32,
+    damage: u32,
 }
 
 struct Bullet {
     damage: u32,
     direction: [f64; 2],
+}
+
+struct PlayerInvincibilitySystem {
+    player_entity: Entity,
+}
+
+impl System for PlayerInvincibilitySystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let player_component: &mut Player;
+        {
+            player_component = entities_and_components
+                .get_components_mut::<(Player,)>(self.player_entity)
+                .0;
+        }
+        if player_component.is_invincible {
+            if player_component.last_hit.elapsed().as_millis() / 1000
+                > player_component.invincibility_time_ms
+            {
+                player_component.is_invincible = false;
+            }
+        }
+    }
 }
 
 struct PlayerMovementSystem {
@@ -367,9 +395,89 @@ impl System for EnemySpawnerSystem {
                     origin_y: 0.0,
                 },
             );
-            entities_and_components.add_component_to(enemy_entity, Enemy { health: 1 });
+            entities_and_components.add_component_to(
+                enemy_entity,
+                Enemy {
+                    health: 1,
+                    damage: 10,
+                },
+            );
             self.last_spawn = Instant::now();
             self.spawn_rate = (self.spawn_rate as f32 * 0.95) as u128;
+        }
+    }
+}
+
+struct EnemyPlayerCollisionSystem {
+    player_entity: Entity,
+}
+
+impl System for EnemyPlayerCollisionSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        if entities_and_components
+            .get_components::<(Player,)>(self.player_entity)
+            .0
+            .is_invincible
+        {
+            return;
+        }
+        let player_transform: Transform;
+        {
+            player_transform = entities_and_components
+                .get_components::<(Transform,)>(self.player_entity)
+                .0
+                .clone();
+        }
+
+        let entities_with_enemies = entities_and_components
+            .get_entities_with_component::<Enemy>()
+            .cloned()
+            .collect::<Vec<Entity>>();
+
+        for enemy_entity in entities_with_enemies {
+            let enemy_transform: Transform;
+            let enemy_component: Enemy;
+            {
+                enemy_transform = entities_and_components
+                    .get_components::<(Transform,)>(enemy_entity)
+                    .0
+                    .clone();
+                enemy_component = entities_and_components
+                    .get_components::<(Enemy,)>(enemy_entity)
+                    .0
+                    .clone();
+            }
+
+            let distance = ((player_transform.x - enemy_transform.x).powi(2)
+                + (player_transform.y - enemy_transform.y).powi(2))
+            .sqrt();
+
+            if distance < PLAYER_HIT_BOX_RADIUS {
+                let player = entities_and_components
+                    .get_components_mut::<(Player,)>(self.player_entity)
+                    .0;
+                player.health -= enemy_component.damage;
+                player.is_invincible = true;
+                player.last_hit = Instant::now();
+            }
+        }
+    }
+}
+
+struct PlayerDeathSystem {
+    player_entity: Entity,
+}
+
+impl System for PlayerDeathSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        if entities_and_components
+            .get_components::<(Player,)>(self.player_entity)
+            .0
+            .health
+            <= 0
+        {
+            entities_and_components.remove_entity(self.player_entity);
+            panic!("Player died");
         }
     }
 }
@@ -414,8 +522,11 @@ fn main() {
             Player {
                 health: 100,
                 bullets_at_once: 1,
-                speed: 20.0,
+                speed: 40.0,
                 xp: 0,
+                invincibility_time_ms: 500,
+                last_hit: Instant::now(),
+                is_invincible: false,
             },
         )
     }
@@ -458,6 +569,14 @@ fn main() {
                 player_entity: player_object,
                 next_upgrade: 10,
             }));
+        scene
+            .game_engine
+            .add_system(Box::new(EnemyPlayerCollisionSystem {
+                player_entity: player_object,
+            }));
+        scene.game_engine.add_system(Box::new(PlayerDeathSystem {
+            player_entity: player_object,
+        }));
     }
 
     loop {

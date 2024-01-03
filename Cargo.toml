@@ -1,4 +1,7 @@
-workspace = { members = ["examples/spritesheet_test"] }
+workspace = { members = [
+    "examples/spritesheet_test",
+    "examples/bullet_heaven",
+] }
 [package]
 name = "ABC_Game_Engine"
 version = "0.1.0"

@@ -1,13 +1,13 @@
 // this highlights some major issues with the current renderer
 use ABC_Game_Engine::*;
 
-const WINDOW_DIMS: (u32, u32) = (160, 160);
+const WINDOW_DIMS: (u32, u32) = (80, 80);
 
 struct MovementSystem {
     player: Entity,
+    /// 0 = UP_INDEX, 1 = RIGHT_INDEX, 2 = DOWN_INDEX, 3 = LEFT_INDEX
     idle_animations: Vec<Animation>,
     walk_animations: Vec<Animation>,
-    /// 0 = up_index, 1 = right_index, 2 = down_index, 3 = left_index
     /// this is used to prevent the animation from changing if the player is already facing that direction
     direction: u8,
     is_idle: bool,
@@ -15,10 +15,10 @@ struct MovementSystem {
 
 impl System for MovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        const up_index: u8 = 0;
-        const right_index: u8 = 2;
-        const down_index: u8 = 3;
-        const left_index: u8 = 1;
+        const UP_INDEX: u8 = 0;
+        const LEFT_INDEX: u8 = 1;
+        const RIGHT_INDEX: u8 = 2;
+        const DOWN_INDEX: u8 = 3;
 
         let mut normalized_dir = [0.0 as f64; 2];
         let delta_time: f64;
@@ -69,35 +69,35 @@ impl System for MovementSystem {
         } else if normalized_dir[0] > 0.0 {
             self.is_idle = false;
 
-            if self.direction == right_index {
+            if self.direction == RIGHT_INDEX {
                 return;
             }
-            *animation = self.walk_animations[right_index as usize].clone();
-            self.direction = right_index;
+            *animation = self.walk_animations[RIGHT_INDEX as usize].clone();
+            self.direction = RIGHT_INDEX;
         } else if normalized_dir[0] < 0.0 {
-            self.is_idle = false;
+            if self.direction == LEFT_INDEX {
+                self.is_idle = false;
 
-            if self.direction == left_index {
+                *animation = self.walk_animations[LEFT_INDEX as usize].clone();
                 return;
             }
-            *animation = self.walk_animations[left_index as usize].clone();
-            self.direction = left_index;
+            self.direction = LEFT_INDEX;
         } else if normalized_dir[1] > 0.0 {
             self.is_idle = false;
 
-            if self.direction == up_index {
+            if self.direction == UP_INDEX {
                 return;
             }
-            *animation = self.walk_animations[up_index as usize].clone();
-            self.direction = up_index;
+            *animation = self.walk_animations[UP_INDEX as usize].clone();
+            self.direction = UP_INDEX;
         } else if normalized_dir[1] < 0.0 {
             self.is_idle = false;
 
-            if self.direction == down_index {
+            if self.direction == DOWN_INDEX {
                 return;
             }
-            *animation = self.walk_animations[down_index as usize].clone();
-            self.direction = down_index;
+            *animation = self.walk_animations[DOWN_INDEX as usize].clone();
+            self.direction = DOWN_INDEX;
         }
     }
 }
