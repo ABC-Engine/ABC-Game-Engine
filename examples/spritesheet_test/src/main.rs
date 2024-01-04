@@ -65,37 +65,38 @@ impl System for MovementSystem {
                 return;
             }
             self.is_idle = true;
+
             *animation = self.idle_animations[self.direction.min(3) as usize].clone();
         } else if normalized_dir[0] > 0.0 {
-            self.is_idle = false;
-
-            if self.direction == RIGHT_INDEX {
+            if self.direction == RIGHT_INDEX && !self.is_idle {
                 return;
             }
+            self.is_idle = false;
+
             *animation = self.walk_animations[RIGHT_INDEX as usize].clone();
             self.direction = RIGHT_INDEX;
         } else if normalized_dir[0] < 0.0 {
-            if self.direction == LEFT_INDEX {
-                self.is_idle = false;
-
-                *animation = self.walk_animations[LEFT_INDEX as usize].clone();
+            if self.direction == LEFT_INDEX && !self.is_idle {
                 return;
             }
-            self.direction = LEFT_INDEX;
-        } else if normalized_dir[1] > 0.0 {
             self.is_idle = false;
 
-            if self.direction == UP_INDEX {
+            *animation = self.walk_animations[LEFT_INDEX as usize].clone();
+            self.direction = LEFT_INDEX;
+        } else if normalized_dir[1] > 0.0 {
+            if self.direction == UP_INDEX && !self.is_idle {
                 return;
             }
+            self.is_idle = false;
+
             *animation = self.walk_animations[UP_INDEX as usize].clone();
             self.direction = UP_INDEX;
         } else if normalized_dir[1] < 0.0 {
-            self.is_idle = false;
-
-            if self.direction == DOWN_INDEX {
+            if self.direction == DOWN_INDEX && !self.is_idle {
                 return;
             }
+            self.is_idle = false;
+
             *animation = self.walk_animations[DOWN_INDEX as usize].clone();
             self.direction = DOWN_INDEX;
         }

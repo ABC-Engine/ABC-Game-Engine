@@ -6,8 +6,10 @@ use ABC_Game_Engine::*;
 mod xp;
 use xp::*;
 
-const WINDOW_DIMS: (u32, u32) = (320, 320);
-const PLAYER_HIT_BOX_RADIUS: f64 = 20.0;
+const WINDOW_DIMS: (u32, u32) = (160, 160);
+const PLAYER_HIT_BOX_RADIUS: f64 = 5.0;
+// if true displays pixel like characters if not displays random characters
+const PIXEL_MODE: bool = true;
 
 struct Player {
     health: u32,
@@ -54,57 +56,105 @@ impl System for PlayerInvincibilitySystem {
 
 struct PlayerMovementSystem {
     player_entity: Entity,
+    direction: u8,
+    walk_animations: Vec<Animation>,
+    idle_animations: Vec<Animation>,
+    is_idle: bool,
 }
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        const UP_INDEX: u8 = 0;
+        const LEFT_INDEX: u8 = 1;
+        const RIGHT_INDEX: u8 = 2;
+        const DOWN_INDEX: u8 = 3;
+
+        let mut normalized_dir = [0.0 as f64; 2];
         let delta_time: f64;
+        let player_speed: f64;
         {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
                 .delta_time;
-        }
-
-        let player_speed: f64;
-        {
-            let (player_component,) =
-                entities_and_components.get_components::<(Player,)>(self.player_entity);
-            player_speed = player_component.speed;
-        }
-
-        let mut normalized_dir: [f64; 2] = [0.0, 0.0];
-        {
             let input = entities_and_components
                 .get_resource::<Input>()
                 .expect("failed to get input");
 
+            player_speed = entities_and_components
+                .get_components::<(Player,)>(self.player_entity)
+                .0
+                .speed;
+
             if input.is_key_pressed(Vk::W) {
-                normalized_dir[1] -= 1.0;
-            }
-            if input.is_key_pressed(Vk::A) {
-                normalized_dir[0] -= 1.0;
+                normalized_dir[1] += -1.0;
             }
             if input.is_key_pressed(Vk::S) {
                 normalized_dir[1] += 1.0;
             }
+            if input.is_key_pressed(Vk::A) {
+                normalized_dir[0] += -1.0;
+            }
             if input.is_key_pressed(Vk::D) {
                 normalized_dir[0] += 1.0;
             }
+            let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
+            if magnitude != 0.0 {
+                normalized_dir[0] /= magnitude;
+                normalized_dir[1] /= magnitude;
+            }
         }
 
-        {
-            let (transform,) =
-                entities_and_components.get_components_mut::<(Transform,)>(self.player_entity);
+        let (transform, sprite) =
+            entities_and_components.get_components_mut::<(Transform, Sprite)>(self.player_entity);
 
-            let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
+        transform.x += normalized_dir[0] * player_speed * delta_time;
+        transform.y += normalized_dir[1] * player_speed * delta_time;
 
-            if magnitude != 0.0 {
-                normalized_dir = [normalized_dir[0] / magnitude, normalized_dir[1] / magnitude];
+        let mut animation = match sprite {
+            Sprite::Animation(animation) => animation,
+            _ => panic!("Player sprite is not an animation"),
+        };
+
+        if normalized_dir[0] == 0.0 && normalized_dir[1] == 0.0 {
+            if self.is_idle {
+                return;
             }
+            self.is_idle = true;
 
-            transform.x += normalized_dir[0] * player_speed * delta_time;
-            transform.y += normalized_dir[1] * player_speed * delta_time;
+            *animation = self.idle_animations[self.direction.min(3) as usize].clone();
+        } else if normalized_dir[0] > 0.0 {
+            if self.direction == RIGHT_INDEX && !self.is_idle {
+                return;
+            }
+            self.is_idle = false;
+
+            *animation = self.walk_animations[RIGHT_INDEX as usize].clone();
+            self.direction = RIGHT_INDEX;
+        } else if normalized_dir[0] < 0.0 {
+            if self.direction == LEFT_INDEX && !self.is_idle {
+                return;
+            }
+            self.is_idle = false;
+
+            *animation = self.walk_animations[LEFT_INDEX as usize].clone();
+            self.direction = LEFT_INDEX;
+        } else if normalized_dir[1] > 0.0 {
+            if self.direction == UP_INDEX && !self.is_idle {
+                return;
+            }
+            self.is_idle = false;
+
+            *animation = self.walk_animations[UP_INDEX as usize].clone();
+            self.direction = UP_INDEX;
+        } else if normalized_dir[1] < 0.0 {
+            if self.direction == DOWN_INDEX && !self.is_idle {
+                return;
+            }
+            self.is_idle = false;
+
+            *animation = self.walk_animations[DOWN_INDEX as usize].clone();
+            self.direction = DOWN_INDEX;
         }
     }
 }
@@ -498,14 +548,26 @@ fn main() {
             a: 0.0,
         });
 
-        scene.scene_params.set_random_chars(true);
+        match PIXEL_MODE {
+            true => {
+                scene.scene_params.set_character('█');
+            }
+            false => {
+                scene.scene_params.set_random_chars(true);
+            }
+        }
 
         let player_image = Image {
             texture: load_texture("Sample_Images/Icon10_01.png"),
         };
 
+        let idle_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_idle.png");
+
         player_object = entities_and_components.add_entity();
-        entities_and_components.add_component_to(player_object, Sprite::Image(player_image));
+        entities_and_components.add_component_to(
+            player_object,
+            Sprite::Animation(idle_animations.get(0).unwrap().clone()),
+        );
         entities_and_components.add_component_to(
             player_object,
             Transform {
@@ -532,10 +594,17 @@ fn main() {
     }
 
     {
+        let idle_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_idle.png");
+        let walk_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_walk.png");
+
         // probably not proper form but for now it is more efficient than searching for every object with a component
         //  this should change in the future.
         scene.game_engine.add_system(Box::new(PlayerMovementSystem {
             player_entity: player_object,
+            idle_animations,
+            walk_animations,
+            direction: 0,
+            is_idle: true,
         }));
         scene.game_engine.add_system(Box::new(EnemyMovementSystem {
             player_entity: player_object,
@@ -577,6 +646,18 @@ fn main() {
         scene.game_engine.add_system(Box::new(PlayerDeathSystem {
             player_entity: player_object,
         }));
+    }
+
+    // start the main game music
+    {
+        let audio_handle = scene
+            .game_engine
+            .entities_and_components
+            .get_resource::<AudioHandle>()
+            .expect("Failed to get audio handle");
+
+        let audio_file = AudioFile::new("main_music.wav");
+        audio_handle.play_infinitely(audio_file);
     }
 
     loop {
