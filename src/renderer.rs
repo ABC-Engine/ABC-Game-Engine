@@ -222,7 +222,36 @@ impl Renderer {
         }
     }
 
-    pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
+    pub fn render_pixel_grid(
+        &mut self,
+        mut pixel_grid: &Vec<Vec<Color>>,
+        scene_params: &SceneParams,
+    ) {
+        if scene_params.pixel_scale != 1 {
+            let mut scaled_pixel_grid =
+                vec![
+                    vec![Color::default(); (self.width * scene_params.pixel_scale) as usize];
+                    (self.height * scene_params.pixel_scale) as usize
+                ];
+
+            for (x, row) in pixel_grid.into_iter().enumerate() {
+                for (y, pixel) in row.into_iter().enumerate() {
+                    for i in 0..scene_params.pixel_scale {
+                        for j in 0..scene_params.pixel_scale {
+                            scaled_pixel_grid[x * scene_params.pixel_scale as usize + i as usize]
+                                [y * scene_params.pixel_scale as usize + j as usize] = *pixel;
+                        }
+                    }
+                }
+            }
+            let changed_scene_params = SceneParams {
+                pixel_scale: 1,
+                ..*scene_params
+            };
+            self.render_pixel_grid(&scaled_pixel_grid, &changed_scene_params);
+            return;
+        }
+
         let mut pixel_character = "".to_string();
         for (x, row) in pixel_grid.into_iter().enumerate() {
             for (y, pixel) in row.into_iter().enumerate() {

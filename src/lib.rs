@@ -79,6 +79,7 @@ pub struct SceneParams {
     background_color: Color,
     is_random_chars: bool,
     character: char,
+    pixel_scale: u32,
 }
 
 impl SceneParams {
@@ -92,19 +93,32 @@ impl SceneParams {
             },
             is_random_chars: false,
             character: '=',
+            pixel_scale: 1,
         }
     }
 
+    /// the background color of the scene
     pub fn set_background_color(&mut self, color: Color) {
         self.background_color = color;
     }
 
+    /// if the characters are random, or if they are all the same character as specified by the set_character function
     pub fn set_random_chars(&mut self, is_random_chars: bool) {
         self.is_random_chars = is_random_chars;
     }
 
+    /// the character that will be displayed if is_random_chars is false
     pub fn set_character(&mut self, character: char) {
         self.character = character;
+    }
+
+    /// the number of characters for each "pixel"
+    pub fn set_pixel_scale(&mut self, pixel_scale: u32) {
+        if pixel_scale == 0 {
+            panic!("pixel_scale cannot be 0");
+        }
+
+        self.pixel_scale = pixel_scale;
     }
 }
 
@@ -127,6 +141,7 @@ impl Scene {
                 },
                 is_random_chars: false,
                 character: '=',
+                pixel_scale: 1,
             },
         };
 
