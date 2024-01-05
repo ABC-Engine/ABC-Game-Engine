@@ -36,7 +36,7 @@ fn main() {
         });
 
         scene.scene_params.set_random_chars(true);
-        scene.scene_params.set_pixel_scale(2);
+        renderer.set_pixel_scale(2);
 
         let plague_mask = Image {
             texture: load_texture("Sample_Images/Icon10_01.png"),

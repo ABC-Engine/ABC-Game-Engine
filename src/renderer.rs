@@ -78,6 +78,7 @@ pub struct Renderer {
     width: u32,
     height: u32,
     stretch: f32,
+    pixel_scale: u16,
     // used for diffing
     // will be empty if no previous frame
     last_pixel_grid: Vec<Vec<Color>>,
@@ -102,11 +103,27 @@ impl Renderer {
             stretch: 2.3,
             last_pixel_grid: vec![],
             handle,
+            pixel_scale: 1,
         }
     }
 
     pub fn set_stretch(&mut self, stretch: f32) {
         self.stretch = stretch;
+    }
+
+    pub fn set_pixel_scale(&mut self, pixel_scale: u16) {
+        self.pixel_scale = pixel_scale;
+
+        crossterm::queue!(
+            self.handle,
+            cursor::Hide,
+            crossterm::terminal::SetSize(
+                self.width as u16 * self.pixel_scale,
+                self.height as u16 * self.pixel_scale
+            ),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+        )
+        .expect("Error: failed to set terminal size");
     }
 
     ///  Renders the scene
@@ -222,33 +239,27 @@ impl Renderer {
         }
     }
 
-    pub fn render_pixel_grid(
-        &mut self,
-        mut pixel_grid: &Vec<Vec<Color>>,
-        scene_params: &SceneParams,
-    ) {
-        if scene_params.pixel_scale != 1 {
+    pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
+        // if the pixel scale is greater than 1, scale the pixel grid
+        // make sure that the pixel grid is not already scaled
+        if self.pixel_scale != 1 && pixel_grid.len() <= self.width as usize {
             let mut scaled_pixel_grid =
                 vec![
-                    vec![Color::default(); (self.width * scene_params.pixel_scale) as usize];
-                    (self.height * scene_params.pixel_scale) as usize
+                    vec![Color::default(); (self.width * self.pixel_scale as u32) as usize];
+                    (self.height * self.pixel_scale as u32) as usize
                 ];
 
             for (x, row) in pixel_grid.into_iter().enumerate() {
                 for (y, pixel) in row.into_iter().enumerate() {
-                    for i in 0..scene_params.pixel_scale {
-                        for j in 0..scene_params.pixel_scale {
-                            scaled_pixel_grid[x * scene_params.pixel_scale as usize + i as usize]
-                                [y * scene_params.pixel_scale as usize + j as usize] = *pixel;
+                    for i in 0..self.pixel_scale {
+                        for j in 0..self.pixel_scale {
+                            scaled_pixel_grid[x * self.pixel_scale as usize + i as usize]
+                                [y * self.pixel_scale as usize + j as usize] = *pixel;
                         }
                     }
                 }
             }
-            let changed_scene_params = SceneParams {
-                pixel_scale: 1,
-                ..*scene_params
-            };
-            self.render_pixel_grid(&scaled_pixel_grid, &changed_scene_params);
+            self.render_pixel_grid(&scaled_pixel_grid, scene_params);
             return;
         }
 
