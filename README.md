@@ -1,6 +1,8 @@
+# Under Construction 🚧
+This project is still under construction and is in the pre-release stage. Significant changes will be made that might break things. We apologize for the inconvenience.
 # Console-Renderer
 A unique renderer that displays through ASCII characters in the terminal
-## Support
+## OS Support
 Right now only Windows is supported, if you are interested in adding support for other operating systems, make an issue.
 # Getting Started
 Note: This is subject to change, these docs could be outdated. Just bug me and I will update them for you.
