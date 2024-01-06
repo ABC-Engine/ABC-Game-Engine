@@ -533,12 +533,120 @@ impl System for PlayerDeathSystem {
     }
 }
 
+struct CameraMovementSystem {
+    player_entity: Entity,
+    camera_entity: Entity,
+    camera_speed: f64,
+}
+
+impl System for CameraMovementSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let player_transform: Transform;
+        let delta_time: f64;
+        {
+            delta_time = entities_and_components
+                .get_resource::<DeltaTime>()
+                .expect("failed to get delta time")
+                .delta_time;
+
+            player_transform = entities_and_components
+                .get_components::<(Transform,)>(self.player_entity)
+                .0
+                .clone();
+        }
+
+        let (camera_transform,) =
+            entities_and_components.get_components_mut::<(Transform,)>(self.camera_entity); // can't fail unless multithreaded
+
+        camera_transform.x +=
+            (player_transform.x - camera_transform.x) * delta_time * self.camera_speed;
+        camera_transform.y +=
+            (player_transform.y - camera_transform.y) * delta_time * self.camera_speed;
+    }
+}
+
+struct BackgroundSystem {
+    camera_entity: Entity,
+    background_tiles: Vec<Entity>,
+    background_sprite: Sprite,
+}
+
+/// places background tiles neat the camera so that the player can't see the edge of the screen
+impl System for BackgroundSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let camera_transform: Transform;
+        {
+            camera_transform = entities_and_components
+                .get_components::<(Transform,)>(self.camera_entity)
+                .0
+                .clone();
+        }
+
+        let mut background_tiles_to_remove = vec![];
+        for background_tile in self.background_tiles.clone() {
+            let (background_transform,) =
+                entities_and_components.get_components_mut::<(Transform,)>(background_tile); // can't fail unless multithreaded
+
+            if (background_transform.x - camera_transform.x).abs() > WINDOW_DIMS.0 as f64 / 2.0
+                || (background_transform.y - camera_transform.y).abs() > WINDOW_DIMS.1 as f64 / 2.0
+            {
+                background_tiles_to_remove.push(background_tile);
+            }
+        }
+
+        for background_tile in background_tiles_to_remove {
+            entities_and_components.remove_entity(background_tile);
+            self.background_tiles.remove(
+                self.background_tiles
+                    .iter()
+                    .position(|&x| x == background_tile)
+                    .unwrap(),
+            );
+        }
+
+        let mut background_tiles_to_add = vec![];
+        for x in -1..2 {
+            for y in -1..2 {
+                let mut is_already_in_background = false;
+                for background_tile in self.background_tiles.clone() {
+                    let (background_transform,) =
+                        entities_and_components.get_components::<(Transform,)>(background_tile); // can't fail unless multithreaded
+
+                    if background_transform.x
+                        == camera_transform.x + x as f64 * WINDOW_DIMS.0 as f64
+                        && background_transform.y
+                            == camera_transform.y + y as f64 * WINDOW_DIMS.1 as f64
+                    {
+                        is_already_in_background = true;
+                        break;
+                    }
+                }
+                if !is_already_in_background {
+                    let mut background_transform = Transform::default();
+                    background_transform.x = camera_transform.x + x as f64 * WINDOW_DIMS.0 as f64;
+                    background_transform.y = camera_transform.y + y as f64 * WINDOW_DIMS.1 as f64;
+                    background_tiles_to_add.push(background_transform);
+                }
+            }
+        }
+
+        for background_transform in background_tiles_to_add {
+            let background_entity = entities_and_components.add_entity();
+            entities_and_components
+                .add_component_to(background_entity, self.background_sprite.clone());
+            entities_and_components.add_component_to(background_entity, background_transform);
+            self.background_tiles.push(background_entity);
+        }
+    }
+}
+
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
     let mut renderer = Renderer::new();
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     let player_object: Entity;
+    let camera_object: Entity;
     {
         let entities_and_components = &mut scene.game_engine.entities_and_components;
 
@@ -595,7 +703,7 @@ fn main() {
 
         let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
 
-        let camera_entity = entities_and_components.add_entity_with((camera, Transform::default()));
+        camera_object = entities_and_components.add_entity_with((camera, Transform::default()));
     }
 
     {
@@ -651,6 +759,19 @@ fn main() {
         scene.game_engine.add_system(Box::new(PlayerDeathSystem {
             player_entity: player_object,
         }));
+        scene.game_engine.add_system(Box::new(CameraMovementSystem {
+            player_entity: player_object,
+            camera_entity: camera_object,
+            camera_speed: 2.0,
+        }));
+        // can't be added until z ordering is implemented
+        /*scene.game_engine.add_system(Box::new(BackgroundSystem {
+            camera_entity: camera_object,
+            background_tiles: vec![],
+            background_sprite: Sprite::Image(Image {
+                texture: load_texture("Sample_Images/Background.png"),
+            }),
+        }));*/
     }
 
     // start the main game music

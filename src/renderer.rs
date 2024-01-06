@@ -146,19 +146,39 @@ impl Renderer {
                 let camera_component = scene
                     .try_get_component::<Camera>(camera_entity)
                     .expect("renderer could not find a camera");
+
                 if camera_component.is_active == true {
+                    if self.width != camera_component.width as u32
+                        || self.height != camera_component.height as u32
+                    {
+                        self.width = camera_component.width as u32;
+                        self.height = camera_component.height as u32;
+                        crossterm::queue!(
+                            self.handle,
+                            cursor::Hide,
+                            crossterm::terminal::SetSize(
+                                self.width as u16 * self.pixel_scale,
+                                self.height as u16 * self.pixel_scale
+                            ),
+                            crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
+                        )
+                        .expect("Error: failed to set terminal size");
+                    }
+
                     let camera_transform = scene
                         .try_get_components::<(Transform,)>(camera_entity)
                         .0
                         .expect("active camera does not have a transform!");
+
                     let opposite_camera_transform = Transform {
-                        x: -camera_transform.x,
-                        y: -camera_transform.y,
+                        x: -camera_transform.x + self.width as f64 / 2.0,
+                        y: -camera_transform.y + self.height as f64 / 2.0,
                         rotation: -camera_transform.rotation,
                         scale: 1.0 / camera_transform.scale,
                         origin_x: -camera_transform.origin_x,
                         origin_y: -camera_transform.origin_y,
                     };
+
                     self.render_objects(scene, &mut pixel_grid, opposite_camera_transform.clone());
                     break;
                 }

@@ -2,8 +2,8 @@ use crate::*;
 
 /// A simple camera that can be used to move the view around
 pub struct Camera {
-    width: u32,
-    height: u32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
     // if false, the camera will not be used by the renderer
     // if multiple cameras are active, the program will panic
     pub(crate) is_active: bool,
