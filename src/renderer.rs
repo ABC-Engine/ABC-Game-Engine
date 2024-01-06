@@ -1,3 +1,4 @@
+use crate::camera::Camera;
 use crate::{
     render_circle, render_rectangle, render_texture, Color, Scene, SceneParams, Transform,
 };
@@ -75,6 +76,8 @@ impl From<Image> for Sprite {
 
 /// Renderer is responsible for rendering the scene
 pub struct Renderer {
+    // width and height are determined by the camera,
+    // but needs to be on the renderer for buffer size
     width: u32,
     height: u32,
     stretch: f32,
@@ -86,20 +89,20 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(width: u32, height: u32) -> Renderer {
+    pub fn new() -> Renderer {
         let stdout = std::io::stdout().lock();
         let mut handle = std::io::BufWriter::with_capacity(8192, stdout);
         crossterm::queue!(
             handle,
             cursor::Hide,
-            crossterm::terminal::SetSize(width as u16, height as u16),
+            crossterm::terminal::SetSize(160 as u16, 160 as u16),
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
         .expect("Error: failed to set terminal size");
 
         Renderer {
-            width,
-            height,
+            width: 160,
+            height: 160,
             stretch: 2.3,
             last_pixel_grid: vec![],
             handle,
@@ -131,7 +134,36 @@ impl Renderer {
         let mut pixel_grid =
             vec![vec![scene_params.background_color; self.width as usize]; self.height as usize];
 
-        self.render_objects(scene, &mut pixel_grid, Transform::default());
+        let camera_entities = scene
+            .get_entities_with_component::<Camera>()
+            .cloned()
+            .collect::<Vec<Entity>>();
+        if camera_entities.len() == 0 {
+            panic!("renderer could not find a camera");
+        } else {
+            // this will not panic if no active camera is found
+            for camera_entity in camera_entities {
+                let camera_component = scene
+                    .try_get_component::<Camera>(camera_entity)
+                    .expect("renderer could not find a camera");
+                if camera_component.is_active == true {
+                    let camera_transform = scene
+                        .try_get_components::<(Transform,)>(camera_entity)
+                        .0
+                        .expect("active camera does not have a transform!");
+                    let opposite_camera_transform = Transform {
+                        x: -camera_transform.x,
+                        y: -camera_transform.y,
+                        rotation: -camera_transform.rotation,
+                        scale: 1.0 / camera_transform.scale,
+                        origin_x: -camera_transform.origin_x,
+                        origin_y: -camera_transform.origin_y,
+                    };
+                    self.render_objects(scene, &mut pixel_grid, opposite_camera_transform.clone());
+                    break;
+                }
+            }
+        }
         self.render_pixel_grid(&pixel_grid, scene_params);
     }
 

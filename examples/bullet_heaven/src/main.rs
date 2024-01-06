@@ -1,8 +1,9 @@
-use rand::Rng;
 /// A basic bullet heaven made with the library
 /// not yet complete
+use rand::Rng;
 use std::{time::Instant, vec};
 use ABC_Game_Engine::*;
+use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
 use xp::*;
 
@@ -534,7 +535,7 @@ impl System for PlayerDeathSystem {
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
-    let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+    let mut renderer = Renderer::new();
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     let player_object: Entity;
@@ -590,7 +591,11 @@ fn main() {
                 last_hit: Instant::now(),
                 is_invincible: false,
             },
-        )
+        );
+
+        let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+
+        let camera_entity = entities_and_components.add_entity_with((camera, Transform::default()));
     }
 
     {

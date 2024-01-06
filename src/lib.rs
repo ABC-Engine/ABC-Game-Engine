@@ -12,6 +12,7 @@ mod renderer;
 pub use renderer::*;
 pub use resources::{delta_time, input};
 pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
+pub mod camera;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {

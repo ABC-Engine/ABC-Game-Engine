@@ -1,5 +1,6 @@
 // this highlights some major issues with the current renderer
 use ABC_Game_Engine::*;
+use ABC_Game_Engine::{camera::Camera, Transform};
 
 const WINDOW_DIMS: (u32, u32) = (160, 80);
 
@@ -22,7 +23,7 @@ impl System for SpinSystem {
 
 // Note: this does not work in vscode terminal, but it does work in the windows terminal
 fn main() {
-    let mut renderer = Renderer::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+    let mut renderer = Renderer::new();
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     {
@@ -42,10 +43,8 @@ fn main() {
             texture: load_texture("Sample_Images/Icon10_01.png"),
         };
 
-        let plague_mask_object = entities_and_components.add_entity();
-        entities_and_components.add_component_to(plague_mask_object, Sprite::Image(plague_mask));
-        entities_and_components.add_component_to(
-            plague_mask_object,
+        entities_and_components.add_entity_with((
+            Sprite::Image(plague_mask),
             Transform {
                 x: 20.0,
                 y: 20.0,
@@ -54,7 +53,10 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-        );
+        ));
+        let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+
+        entities_and_components.add_entity_with((camera, Transform::default()));
     }
 
     scene.game_engine.add_system(Box::new(SpinSystem {}));
