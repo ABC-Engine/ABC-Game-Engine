@@ -7,7 +7,7 @@ use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
 use xp::*;
 
-const WINDOW_DIMS: (u32, u32) = (160, 160);
+const WINDOW_DIMS: (u32, u32) = (80, 80);
 const PLAYER_HIT_BOX_RADIUS: f64 = 5.0;
 // if true displays pixel like characters if not displays random characters
 const PIXEL_MODE: bool = true;
@@ -274,6 +274,7 @@ fn spawn_bullet(entities_and_components: &mut EntitiesAndComponents, pos: [f64; 
         Transform {
             x: pos[0],
             y: pos[1],
+            z: 0.0,
             rotation: 0.0,
             scale: 1.0,
             origin_x: 0.0,
@@ -440,6 +441,7 @@ impl System for EnemySpawnerSystem {
                 Transform {
                     x,
                     y,
+                    z: 0.0,
                     rotation: 0.0,
                     scale: 1.0,
                     origin_x: 0.0,
@@ -574,6 +576,16 @@ struct BackgroundSystem {
 /// places background tiles neat the camera so that the player can't see the edge of the screen
 impl System for BackgroundSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        const TRANSFORM: Transform = Transform {
+            x: 0.0,
+            y: 0.0,
+            z: -5.0,
+            rotation: 0.0,
+            scale: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        };
+
         let camera_transform: Transform;
         {
             camera_transform = entities_and_components
@@ -582,61 +594,96 @@ impl System for BackgroundSystem {
                 .clone();
         }
 
-        let mut background_tiles_to_remove = vec![];
-        for background_tile in self.background_tiles.clone() {
-            let (background_transform,) =
-                entities_and_components.get_components_mut::<(Transform,)>(background_tile); // can't fail unless multithreaded
+        if self.background_tiles.is_empty() {
+            let mut tile_transform = TRANSFORM.clone();
+            tile_transform.x = camera_transform.x;
+            tile_transform.y = camera_transform.y;
+            let tile_entity = entities_and_components.add_entity();
+            entities_and_components.add_component_to(tile_entity, self.background_sprite.clone());
+            entities_and_components.add_component_to(tile_entity, tile_transform);
+            self.background_tiles.push(tile_entity);
+        }
 
-            if (background_transform.x - camera_transform.x).abs() > WINDOW_DIMS.0 as f64 / 2.0
-                || (background_transform.y - camera_transform.y).abs() > WINDOW_DIMS.1 as f64 / 2.0
-            {
-                background_tiles_to_remove.push(background_tile);
+        /*if self.background_tiles.len() < 9 {
+            for entity in &self.background_tiles {
+                entities_and_components.remove_entity(*entity);
             }
-        }
+            // the tile repeats every 4x4 pixels so you can use a modulo to get the correct tile position
+            for i in 0..3 {
+                for j in 0..3 {
+                    let mut tile_transform = TRANSFORM.clone();
+                    tile_transform.x = camera_transform.x + i as f64 * 160.0;
+                    tile_transform.y = camera_transform.y + j as f64 * 160.0;
+                    let tile_entity = entities_and_components.add_entity();
+                    entities_and_components
+                        .add_component_to(tile_entity, self.background_sprite.clone());
+                    entities_and_components.add_component_to(tile_entity, tile_transform);
+                    self.background_tiles.push(tile_entity);
+                }
+            }
+        } else {
+            // see which tiles are within the camera view and which are not
+            let mut tiles_to_move = vec![];
+            for (i, tile_entity) in self.background_tiles.iter().enumerate() {
+                let tile_transform: Transform;
+                {
+                    tile_transform = entities_and_components
+                        .get_components::<(Transform,)>(*tile_entity)
+                        .0
+                        .clone();
+                }
+                if tile_transform.x < camera_transform.x - 160.0
+                    || tile_transform.x > camera_transform.x + 160.0
+                    || tile_transform.y < camera_transform.y - 160.0
+                    || tile_transform.y > camera_transform.y + 160.0
+                {
+                    tiles_to_move.push(i);
+                }
+            }
 
-        for background_tile in background_tiles_to_remove {
-            entities_and_components.remove_entity(background_tile);
-            self.background_tiles.remove(
-                self.background_tiles
-                    .iter()
-                    .position(|&x| x == background_tile)
-                    .unwrap(),
-            );
-        }
-
-        let mut background_tiles_to_add = vec![];
-        for x in -1..2 {
-            for y in -1..2 {
-                let mut is_already_in_background = false;
-                for background_tile in self.background_tiles.clone() {
-                    let (background_transform,) =
-                        entities_and_components.get_components::<(Transform,)>(background_tile); // can't fail unless multithreaded
-
-                    if background_transform.x
-                        == camera_transform.x + x as f64 * WINDOW_DIMS.0 as f64
-                        && background_transform.y
-                            == camera_transform.y + y as f64 * WINDOW_DIMS.1 as f64
-                    {
-                        is_already_in_background = true;
-                        break;
+            // see which tiles are within the camera view but don't exist in the scene
+            let mut tiles_to_move_to = vec![];
+            for i in 0..3 {
+                for j in 0..3 {
+                    let mut tile_transform = TRANSFORM.clone();
+                    tile_transform.x = camera_transform.x + i as f64 * 160.0;
+                    tile_transform.y = camera_transform.y + j as f64 * 160.0;
+                    let mut tile_exists = false;
+                    for tile_entity in &self.background_tiles {
+                        let tile_transform: Transform;
+                        {
+                            tile_transform = entities_and_components
+                                .get_components::<(Transform,)>(*tile_entity)
+                                .0
+                                .clone();
+                        }
+                        if tile_transform.x == tile_transform.x
+                            && tile_transform.y == tile_transform.y
+                        {
+                            tile_exists = true;
+                            break;
+                        }
+                    }
+                    if !tile_exists {
+                        tiles_to_move_to.push(tile_transform);
                     }
                 }
-                if !is_already_in_background {
-                    let mut background_transform = Transform::default();
-                    background_transform.x = camera_transform.x + x as f64 * WINDOW_DIMS.0 as f64;
-                    background_transform.y = camera_transform.y + y as f64 * WINDOW_DIMS.1 as f64;
-                    background_tiles_to_add.push(background_transform);
-                }
             }
-        }
 
-        for background_transform in background_tiles_to_add {
-            let background_entity = entities_and_components.add_entity();
-            entities_and_components
-                .add_component_to(background_entity, self.background_sprite.clone());
-            entities_and_components.add_component_to(background_entity, background_transform);
-            self.background_tiles.push(background_entity);
-        }
+            // move the tiles that are outside the camera view to the tiles that are inside the camera view but don't exist in the scene
+            for i in 0..tiles_to_move.len().min(tiles_to_move_to.len()) {
+                let tile_entity = self.background_tiles[tiles_to_move[i]];
+                let tile_transform = tiles_to_move_to[i];
+                entities_and_components
+                    .get_components_mut::<(Transform,)>(tile_entity)
+                    .0
+                    .x = tile_transform.x;
+                entities_and_components
+                    .get_components_mut::<(Transform,)>(tile_entity)
+                    .0
+                    .y = tile_transform.y;
+            }
+        }*/
     }
 }
 
@@ -682,6 +729,7 @@ fn main() {
             Transform {
                 x: 20.0,
                 y: 20.0,
+                z: 100.0,
                 rotation: 0.0,
                 scale: 1.0,
                 origin_x: 0.0,
@@ -725,7 +773,7 @@ fn main() {
         }));
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
             last_spawn: Instant::now(),
-            spawn_rate: 2,
+            spawn_rate: 200000,
         }));
         scene.game_engine.add_system(Box::new(PlayerShootingSystem {
             player_entity: player_object,
@@ -765,13 +813,13 @@ fn main() {
             camera_speed: 2.0,
         }));
         // can't be added until z ordering is implemented
-        /*scene.game_engine.add_system(Box::new(BackgroundSystem {
+        scene.game_engine.add_system(Box::new(BackgroundSystem {
             camera_entity: camera_object,
             background_tiles: vec![],
             background_sprite: Sprite::Image(Image {
                 texture: load_texture("Sample_Images/Background.png"),
             }),
-        }));*/
+        }));
     }
 
     // start the main game music

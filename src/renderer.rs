@@ -173,6 +173,7 @@ impl Renderer {
                     let opposite_camera_transform = Transform {
                         x: -camera_transform.x + self.width as f64 / 2.0,
                         y: -camera_transform.y + self.height as f64 / 2.0,
+                        z: 0.0,
                         rotation: -camera_transform.rotation,
                         scale: 1.0 / camera_transform.scale,
                         origin_x: -camera_transform.origin_x,
@@ -187,19 +188,43 @@ impl Renderer {
         self.render_pixel_grid(&pixel_grid, scene_params);
     }
 
+    // not thread safe
     fn render_objects(
         &self,
         entities_and_components: &mut EntitiesAndComponents,
         pixel_grid: &mut Vec<Vec<Color>>,
         transform_offset: Transform,
     ) {
-        // could possibly be done multithreaded and combine layers afterward
-        for i in 0..entities_and_components.get_entity_count() {
-            {
+        let mut entity_depth_array = vec![];
+        {
+            let entities_with_sprite = entities_and_components
+                .get_entities_with_component::<Sprite>()
+                .cloned()
+                .collect::<Vec<Entity>>();
+
+            // sort entities by z value
+            for entity in entities_with_sprite {
                 let (sprite, transform) = entities_and_components
                     .try_get_components_mut::<(Sprite, Transform)>(
-                        entities_and_components.get_nth_entity(i).unwrap(), // can't fail unless done multithreaded in the future
+                        entity, // can't fail unless done multithreaded in the future
                     );
+                if let (Some(sprite), Some(transform)) = (sprite, transform) {
+                    entity_depth_array.push(EntityDepthItem {
+                        entity,
+                        depth: transform.z,
+                    });
+                }
+            }
+        }
+        entity_depth_array.sort();
+
+        // could possibly be done multithreaded and combine layers afterward
+        for entity_depth_item in entity_depth_array {
+            let entity = entity_depth_item.entity;
+
+            let (sprite, transform) = entities_and_components
+                .try_get_components_mut::<(Sprite, Transform)>(entity_depth_item.entity);
+            {
                 // if the object doesn't have a sprite or transform, don't render it
                 match (sprite, transform) {
                     (None, None) => continue,
@@ -237,36 +262,9 @@ impl Renderer {
                             }
                         }
                     }
-                    (Some(sprite), None) => match sprite {
-                        Sprite::Circle(circle) => render_circle(
-                            &circle,
-                            &(&Transform::default() + &transform_offset),
-                            pixel_grid,
-                            self.stretch,
-                        ),
-                        Sprite::Rectangle(rectangle) => render_rectangle(
-                            &rectangle,
-                            &(&Transform::default() + &transform_offset),
-                            pixel_grid,
-                            self.stretch,
-                        ),
-                        Sprite::Image(image) => render_texture(
-                            &image.texture,
-                            &(&Transform::default() + &transform_offset),
-                            pixel_grid,
-                            self.stretch,
-                        ),
-                        Sprite::Animation(animation) => {
-                            update_animation(animation);
-                            let current_frame = &animation.frames[animation.current_frame];
-                            render_texture(
-                                &current_frame.texture,
-                                &(&Transform::default() + &transform_offset),
-                                pixel_grid,
-                                self.stretch,
-                            );
-                        }
-                    },
+                    // can no longer render an object with a sprite but no transform
+                    // because the transform is used as an offset
+                    (Some(sprite), None) => {}
                     _ => (),
                 }
             }
@@ -274,7 +272,7 @@ impl Renderer {
             // if the object has a transform and children, render the children with the transform as an offset
             if let (Some(children), Some(transform)) = entities_and_components
                 .try_get_components_mut::<(EntitiesAndComponents, Transform)>(
-                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
+                    entity, // again, can't fail unless done multithreaded in the future
                 )
             {
                 let transform = &*transform;
@@ -283,7 +281,7 @@ impl Renderer {
             // if the object has children but no transform, render the children without any offset
             else if let Some(children) = entities_and_components
                 .try_get_component_mut::<EntitiesAndComponents>(
-                    entities_and_components.get_nth_entity(i).unwrap(), // again, can't fail unless done multithreaded in the future
+                    entity, // again, can't fail unless done multithreaded in the future
                 )
             {
                 self.render_objects(children, pixel_grid, transform_offset);
@@ -363,5 +361,32 @@ fn update_animation(animation: &mut Animation) {
                 animation.finished = true;
             }
         }
+    }
+}
+
+struct EntityDepthItem {
+    entity: Entity,
+    depth: f64,
+}
+
+impl Eq for EntityDepthItem {}
+
+impl PartialEq for EntityDepthItem {
+    fn eq(&self, other: &Self) -> bool {
+        self.depth == other.depth
+    }
+}
+
+impl PartialOrd for EntityDepthItem {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.depth.partial_cmp(&other.depth)
+    }
+}
+
+impl Ord for EntityDepthItem {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.depth
+            .partial_cmp(&other.depth)
+            .expect("failed to compare entity depth")
     }
 }

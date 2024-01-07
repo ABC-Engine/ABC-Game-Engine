@@ -22,6 +22,7 @@ pub(crate) fn spawn_xp_orb(
         Transform {
             x: pos[0],
             y: pos[1],
+            z: -1.0,
             rotation: 0.0,
             scale: 1.0,
             origin_x: 0.0,

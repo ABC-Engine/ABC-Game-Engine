@@ -38,6 +38,8 @@ impl Default for Color {
 pub struct Transform {
     pub x: f64,
     pub y: f64,
+    /// z is used for depth sorting, the actual value of z does not matter, only the relative values of z between objects
+    pub z: f64,
     pub rotation: f64,
     pub scale: f32,
     /// origin relative to the position of the object
@@ -51,6 +53,7 @@ impl Transform {
         Transform {
             x: 0.0,
             y: 0.0,
+            z: 0.0,
             rotation: 0.0,
             scale: 1.0,
             origin_x: 0.0,
@@ -67,6 +70,7 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
         Transform {
             x: self.x + other.x,
             y: self.y + other.y,
+            z: self.z + other.z,
             rotation: self.rotation + other.rotation,
             scale: self.scale * other.scale,
             origin_x: self.origin_x - other.x as f32,
