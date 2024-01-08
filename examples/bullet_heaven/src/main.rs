@@ -1,3 +1,4 @@
+use core::f64;
 /// A basic bullet heaven made with the library
 /// not yet complete
 use rand::Rng;
@@ -15,6 +16,10 @@ const PIXEL_MODE: bool = false;
 struct Player {
     health: u32,
     bullets_at_once: u32,
+    /// the rate at which the player can shoot in bullets per second
+    shot_rate: u128,
+    /// range of the player's bullets in pixels
+    range: u32,
     speed: f64,
     xp: u32,
     invincibility_time_ms: u128,
@@ -163,12 +168,18 @@ impl System for PlayerMovementSystem {
 struct PlayerShootingSystem {
     player_entity: Entity,
     last_shot: Instant,
-    shot_rate: u128,
 }
 
 impl System for PlayerShootingSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        if self.last_shot.elapsed().as_millis() / 1000 > self.shot_rate {
+        let player_shot_rate: u128;
+        {
+            player_shot_rate = entities_and_components
+                .get_components::<(Player,)>(self.player_entity)
+                .0
+                .shot_rate;
+        }
+        if self.last_shot.elapsed().as_millis() / 1000 > player_shot_rate {
             let bullets_to_fire: u32;
             let player_transform_copy: Transform;
             let mut closest_enemies_dirs: Vec<[f64; 2]>;
@@ -199,6 +210,11 @@ impl System for PlayerShootingSystem {
                             let distance = ((player_transform.x - other_transform.x).powi(2)
                                 + (player_transform.y - other_transform.y).powi(2))
                             .sqrt();
+
+                            if distance > player_component.range as f64 {
+                                continue;
+                            }
+
                             if closest_enemies.len() == 0 {
                                 closest_enemies = vec![(other_entity, distance)];
                             } else {
@@ -346,6 +362,7 @@ impl System for BulletCollisionSystem {
                             + (self_transform.y - other_transform.y).powi(2))
                         .sqrt();
 
+                        // bullet hit enemy
                         if distance < 5.0 {
                             spawn_xp_orb(
                                 entities_and_components,
@@ -415,16 +432,35 @@ impl System for EnemyMovementSystem {
 }
 
 struct EnemySpawnerSystem {
+    /// so that entities don't spawn on screen
+    camera_entity: Entity,
     last_spawn: Instant,
-    spawn_rate: u128,
+    spawn_rate: f32,
+    /// the minimum distance from the camera that enemies will spawn
+    distance_from_camera_min: f64,
+    /// the maximum distance from the camera that enemies will spawn
+    distance_from_camera_max: f64,
 }
 
 impl System for EnemySpawnerSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        if self.last_spawn.elapsed().as_millis() / 1000 > self.spawn_rate {
+        if (self.last_spawn.elapsed().as_millis() / 1000) as f32 > self.spawn_rate {
+            let camera_xy: (f64, f64);
+            {
+                let camera_transform = entities_and_components
+                    .get_components::<(Transform,)>(self.camera_entity)
+                    .0
+                    .clone();
+                camera_xy = (camera_transform.x, camera_transform.y);
+            }
+
             let mut rng = rand::thread_rng();
-            let x = rng.gen_range(0.0..WINDOW_DIMS.0 as f64);
-            let y = rng.gen_range(0.0..WINDOW_DIMS.1 as f64);
+            let angle = rng.gen_range(0.0..std::f64::consts::PI * 2.0);
+            let distance =
+                rng.gen_range(self.distance_from_camera_min..self.distance_from_camera_max);
+            let x = camera_xy.0 + (distance * angle.cos());
+            let y = camera_xy.1 + (distance * angle.sin());
+
             let enemy_circle = Circle {
                 radius: 5.0,
                 color: Color {
@@ -456,7 +492,7 @@ impl System for EnemySpawnerSystem {
                 },
             );
             self.last_spawn = Instant::now();
-            self.spawn_rate = (self.spawn_rate as f32 * 0.95) as u128;
+            self.spawn_rate = (self.spawn_rate * 0.95);
         }
     }
 }
@@ -717,6 +753,8 @@ fn main() {
             Player {
                 health: 100,
                 bullets_at_once: 1,
+                shot_rate: 1,
+                range: 80,
                 speed: 40.0,
                 xp: 0,
                 invincibility_time_ms: 500,
@@ -748,13 +786,15 @@ fn main() {
             enemy_speed: 10.0,
         }));
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
+            camera_entity: camera_object,
             last_spawn: Instant::now(),
-            spawn_rate: 2,
+            spawn_rate: 5.0,
+            distance_from_camera_min: 100.0,
+            distance_from_camera_max: 200.0,
         }));
         scene.game_engine.add_system(Box::new(PlayerShootingSystem {
             player_entity: player_object,
             last_shot: Instant::now(),
-            shot_rate: 1,
         }));
         scene.game_engine.add_system(Box::new(BulletMovementSystem {
             bullet_speed: 100.0,
