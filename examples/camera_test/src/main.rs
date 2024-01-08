@@ -66,6 +66,7 @@ fn main() {
             Transform {
                 x: 20.0,
                 y: 20.0,
+                z: 0.0,
                 rotation: 0.0,
                 scale: 2.0,
                 origin_x: 0.0,

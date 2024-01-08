@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 ABC_Game_Engine = { path = "../../../ABC-Engine" }
 rand = "0.8.5"
+
+[profile.release]
+opt-level = 3

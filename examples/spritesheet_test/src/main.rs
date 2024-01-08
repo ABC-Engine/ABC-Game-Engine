@@ -130,6 +130,7 @@ fn main() {
             Transform {
                 x: 40.0,
                 y: 20.0,
+                z: 0.0,
                 scale: 1.0,
                 rotation: 0.0,
                 origin_x: 0.0,

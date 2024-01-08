@@ -7,10 +7,10 @@ use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
 use xp::*;
 
-const WINDOW_DIMS: (u32, u32) = (80, 80);
+const WINDOW_DIMS: (u32, u32) = (160, 160);
 const PLAYER_HIT_BOX_RADIUS: f64 = 5.0;
 // if true displays pixel like characters if not displays random characters
-const PIXEL_MODE: bool = true;
+const PIXEL_MODE: bool = false;
 
 struct Player {
     health: u32,
@@ -594,96 +594,69 @@ impl System for BackgroundSystem {
                 .clone();
         }
 
-        if self.background_tiles.is_empty() {
-            let mut tile_transform = TRANSFORM.clone();
-            tile_transform.x = camera_transform.x;
-            tile_transform.y = camera_transform.y;
-            let tile_entity = entities_and_components.add_entity();
-            entities_and_components.add_component_to(tile_entity, self.background_sprite.clone());
-            entities_and_components.add_component_to(tile_entity, tile_transform);
-            self.background_tiles.push(tile_entity);
+        let mut camera_x = camera_transform.x;
+        let mut camera_y = camera_transform.y;
+
+        // the tiles are 160x160
+        camera_x -= camera_x % 160.0;
+        camera_y -= camera_y % 160.0;
+
+        let mut tiles_to_add: Vec<Entity> = vec![];
+        for x in -1..2 {
+            for y in -1..2 {
+                let mut tile_exists = false;
+                for tile in self.background_tiles.clone() {
+                    let (transform,) = entities_and_components.get_components::<(Transform,)>(tile); // can't fail unless multithreaded
+
+                    if transform.x == camera_x + (x as f64 * 160.0)
+                        && transform.y == camera_y + (y as f64 * 160.0)
+                    {
+                        tile_exists = true;
+                        break;
+                    }
+                }
+                if !tile_exists {
+                    let mut tile = entities_and_components.add_entity();
+                    entities_and_components.add_component_to(tile, self.background_sprite.clone());
+                    entities_and_components.add_component_to(
+                        tile,
+                        Transform {
+                            x: camera_x + (x as f64 * 160.0),
+                            y: camera_y + (y as f64 * 160.0),
+                            ..TRANSFORM
+                        },
+                    );
+                    tiles_to_add.push(tile);
+                }
+            }
         }
 
-        /*if self.background_tiles.len() < 9 {
-            for entity in &self.background_tiles {
-                entities_and_components.remove_entity(*entity);
-            }
-            // the tile repeats every 4x4 pixels so you can use a modulo to get the correct tile position
-            for i in 0..3 {
-                for j in 0..3 {
-                    let mut tile_transform = TRANSFORM.clone();
-                    tile_transform.x = camera_transform.x + i as f64 * 160.0;
-                    tile_transform.y = camera_transform.y + j as f64 * 160.0;
-                    let tile_entity = entities_and_components.add_entity();
-                    entities_and_components
-                        .add_component_to(tile_entity, self.background_sprite.clone());
-                    entities_and_components.add_component_to(tile_entity, tile_transform);
-                    self.background_tiles.push(tile_entity);
-                }
-            }
-        } else {
-            // see which tiles are within the camera view and which are not
-            let mut tiles_to_move = vec![];
-            for (i, tile_entity) in self.background_tiles.iter().enumerate() {
-                let tile_transform: Transform;
-                {
-                    tile_transform = entities_and_components
-                        .get_components::<(Transform,)>(*tile_entity)
-                        .0
-                        .clone();
-                }
-                if tile_transform.x < camera_transform.x - 160.0
-                    || tile_transform.x > camera_transform.x + 160.0
-                    || tile_transform.y < camera_transform.y - 160.0
-                    || tile_transform.y > camera_transform.y + 160.0
-                {
-                    tiles_to_move.push(i);
-                }
-            }
+        for tile in tiles_to_add {
+            self.background_tiles.push(tile);
+        }
 
-            // see which tiles are within the camera view but don't exist in the scene
-            let mut tiles_to_move_to = vec![];
-            for i in 0..3 {
-                for j in 0..3 {
-                    let mut tile_transform = TRANSFORM.clone();
-                    tile_transform.x = camera_transform.x + i as f64 * 160.0;
-                    tile_transform.y = camera_transform.y + j as f64 * 160.0;
-                    let mut tile_exists = false;
-                    for tile_entity in &self.background_tiles {
-                        let tile_transform: Transform;
-                        {
-                            tile_transform = entities_and_components
-                                .get_components::<(Transform,)>(*tile_entity)
-                                .0
-                                .clone();
-                        }
-                        if tile_transform.x == tile_transform.x
-                            && tile_transform.y == tile_transform.y
-                        {
-                            tile_exists = true;
-                            break;
-                        }
-                    }
-                    if !tile_exists {
-                        tiles_to_move_to.push(tile_transform);
-                    }
-                }
-            }
+        let mut tiles_to_remove: Vec<Entity> = vec![];
+        for tile in self.background_tiles.clone() {
+            let (transform,) = entities_and_components.get_components::<(Transform,)>(tile); // can't fail unless multithreaded
 
-            // move the tiles that are outside the camera view to the tiles that are inside the camera view but don't exist in the scene
-            for i in 0..tiles_to_move.len().min(tiles_to_move_to.len()) {
-                let tile_entity = self.background_tiles[tiles_to_move[i]];
-                let tile_transform = tiles_to_move_to[i];
-                entities_and_components
-                    .get_components_mut::<(Transform,)>(tile_entity)
-                    .0
-                    .x = tile_transform.x;
-                entities_and_components
-                    .get_components_mut::<(Transform,)>(tile_entity)
-                    .0
-                    .y = tile_transform.y;
+            if transform.x < camera_x - 160.0
+                || transform.x > camera_x + 160.0
+                || transform.y < camera_y - 160.0
+                || transform.y > camera_y + 160.0
+            {
+                tiles_to_remove.push(tile);
             }
-        }*/
+        }
+
+        for tile in tiles_to_remove {
+            entities_and_components.remove_entity(tile);
+            self.background_tiles.remove(
+                self.background_tiles
+                    .iter()
+                    .position(|&x| x == tile)
+                    .unwrap(),
+            );
+        }
     }
 }
 
@@ -706,10 +679,13 @@ fn main() {
 
         match PIXEL_MODE {
             true => {
+                // i think that this renders slower, but it looks better
+                // i guess this isn't a standard character?
                 scene.scene_params.set_character('█');
             }
             false => {
-                scene.scene_params.set_random_chars(true);
+                //scene.scene_params.set_random_chars(true);
+                scene.scene_params.set_character('0');
             }
         }
 
@@ -773,7 +749,7 @@ fn main() {
         }));
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
             last_spawn: Instant::now(),
-            spawn_rate: 200000,
+            spawn_rate: 2,
         }));
         scene.game_engine.add_system(Box::new(PlayerShootingSystem {
             player_entity: player_object,
@@ -817,7 +793,7 @@ fn main() {
             camera_entity: camera_object,
             background_tiles: vec![],
             background_sprite: Sprite::Image(Image {
-                texture: load_texture("Sample_Images/Background.png"),
+                texture: load_texture("Sample_Images/Grass_Background.png"),
             }),
         }));
     }
