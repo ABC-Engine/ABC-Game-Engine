@@ -8,6 +8,19 @@
         ".\\examples\\camera_test\\Cargo.toml",
         ".\\examples\\camera_test\\Cargo.toml",
         ".\\examples\\pixel_scaling_test\\Cargo.toml",
-        ".\\examples\\pixel_scaling_test\\Cargo.toml"
+        ".\\examples\\pixel_scaling_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\mask_test\\Cargo.toml"
     ]
 }

@@ -7,12 +7,12 @@ pub use shape_renderer::*;
 mod load_texture;
 pub use crossterm::event::KeyCode;
 pub use load_texture::*;
+use renderer::*;
 pub use resources::*;
-mod renderer;
-pub use renderer::*;
 pub use resources::{delta_time, input};
 pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
 pub mod camera;
+pub mod renderer;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {

@@ -1,4 +1,5 @@
 // this highlights some major issues with the current renderer
+use ABC_Game_Engine::renderer::{Animation, Renderer, Sprite};
 use ABC_Game_Engine::*;
 use ABC_Game_Engine::{camera::Camera, Transform};
 

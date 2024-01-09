@@ -1,7 +1,10 @@
 workspace = { members = [
     "examples/spritesheet_test",
     "examples/bullet_heaven",
-    "examples/audio_test", "examples/pixel_scaling_test", "examples/camera_test",
+    "examples/audio_test",
+    "examples/pixel_scaling_test",
+    "examples/camera_test",
+    "examples/mask_test",
 ] }
 [package]
 name = "ABC_Game_Engine"

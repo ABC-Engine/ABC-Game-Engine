@@ -3,6 +3,7 @@ use core::f64;
 /// not yet complete
 use rand::Rng;
 use std::{time::Instant, vec};
+use ABC_Game_Engine::renderer::{Animation, Circle, Image, Rectangle, Renderer, Sprite};
 use ABC_Game_Engine::*;
 use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
@@ -304,6 +305,14 @@ fn spawn_bullet(entities_and_components: &mut EntitiesAndComponents, pos: [f64; 
             direction: dir,
         },
     );
+
+    let audio_handle = entities_and_components
+        .get_resource::<AudioHandle>()
+        .expect("Failed to get audio handle");
+
+    let audio_file = AudioFile::new("Sounds/Gun_Shot.wav");
+
+    audio_handle.play_one_shot(audio_file);
 }
 
 struct BulletMovementSystem {
@@ -846,7 +855,7 @@ fn main() {
             .get_resource::<AudioHandle>()
             .expect("Failed to get audio handle");
 
-        let audio_file = AudioFile::new("main_music.wav");
+        let audio_file = AudioFile::new("Sounds/Main_Music.wav");
         audio_handle.play_infinitely(audio_file);
     }
 

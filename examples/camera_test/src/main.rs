@@ -1,3 +1,5 @@
+use ABC_Game_Engine::renderer::Renderer;
+use ABC_Game_Engine::renderer::{Image, Sprite};
 use ABC_Game_Engine::*;
 use ABC_Game_Engine::{camera::Camera, Transform};
 

@@ -1,6 +1,7 @@
 use crate::camera::Camera;
 use crate::{
-    render_circle, render_rectangle, render_texture, Color, Scene, SceneParams, Transform,
+    render_circle, render_circle_with_mask, render_rectangle, render_rectangle_with_mask,
+    render_texture, render_texture_with_mask, Color, Scene, SceneParams, Transform,
 };
 use colored::Colorize;
 use crossterm::cursor;
@@ -11,6 +12,9 @@ use std::{
     vec,
 };
 use ABC_ECS::{EntitiesAndComponents, Entity, TryComponentsRef};
+
+use self::mask::Mask;
+pub mod mask;
 
 #[derive(Clone, Copy)]
 pub struct Circle {
@@ -176,8 +180,8 @@ impl Renderer {
                         z: 0.0,
                         rotation: -camera_transform.rotation,
                         scale: 1.0 / camera_transform.scale,
-                        origin_x: -camera_transform.origin_x,
-                        origin_y: -camera_transform.origin_y,
+                        origin_x: 0.0,
+                        origin_y: 0.0,
                     };
 
                     self.render_objects(scene, &mut pixel_grid, opposite_camera_transform.clone());
@@ -222,13 +226,13 @@ impl Renderer {
         for entity_depth_item in entity_depth_array {
             let entity = entity_depth_item.entity;
 
-            let (sprite, transform) = entities_and_components
-                .try_get_components_mut::<(Sprite, Transform)>(entity_depth_item.entity);
+            let (sprite, mask, transform) = entities_and_components
+                .try_get_components_mut::<(Sprite, Mask, Transform)>(entity_depth_item.entity);
             {
                 // if the object doesn't have a sprite or transform, don't render it
-                match (sprite, transform) {
-                    (None, None) => continue,
-                    (Some(sprite), Some(transform)) => {
+                match (sprite, mask, transform) {
+                    (None, None, None) => continue,
+                    (Some(sprite), None, Some(transform)) => {
                         let transform = &transform.clone();
                         // check if object is circle or rectangle
                         match sprite {
@@ -262,9 +266,46 @@ impl Renderer {
                             }
                         }
                     }
+                    (Some(sprite), Some(mask), Some(transform)) => {
+                        let transform = &transform.clone();
+                        // check if object is circle or rectangle
+                        match sprite {
+                            Sprite::Circle(circle) => render_circle_with_mask(
+                                &circle,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                                mask,
+                            ),
+                            Sprite::Rectangle(rectangle) => render_rectangle_with_mask(
+                                &rectangle,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                                mask,
+                            ),
+                            Sprite::Image(image) => render_texture_with_mask(
+                                &image.texture,
+                                &(transform + &transform_offset),
+                                pixel_grid,
+                                self.stretch,
+                                mask,
+                            ),
+                            Sprite::Animation(animation) => {
+                                update_animation(animation);
+                                let current_frame = &animation.frames[animation.current_frame];
+                                render_texture(
+                                    &current_frame.texture,
+                                    &(transform + &transform_offset),
+                                    pixel_grid,
+                                    self.stretch,
+                                );
+                            }
+                        }
+                    }
                     // can no longer render an object with a sprite but no transform
                     // because the transform is used as an offset
-                    (Some(sprite), None) => {}
+                    (Some(sprite), None, None) => {}
                     _ => (),
                 }
             }

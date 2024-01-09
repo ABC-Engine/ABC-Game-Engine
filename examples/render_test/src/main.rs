@@ -9,7 +9,7 @@ impl System for SpinSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         // not efficient, but this is what has to be done for now
         let entities = entities_and_components
-            .get_entities_with_component::<Transform>()
+            .get_entities_with_component::<Sprite>()
             .cloned()
             .collect::<Vec<Entity>>();
 
@@ -27,6 +27,10 @@ fn main() {
     let mut scene = Scene::new();
     {
         let entities_and_components = &mut scene.game_engine.entities_and_components;
+
+        let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
+
+        entities_and_components.add_entity_with((camera, Transform::default()));
 
         scene.scene_params.set_background_color(Color {
             r: 100,
@@ -48,6 +52,7 @@ fn main() {
             Transform {
                 x: 20.0,
                 y: 20.0,
+                z: 0.0,
                 rotation: 0.0,
                 scale: 2.0,
                 origin_x: 0.0,

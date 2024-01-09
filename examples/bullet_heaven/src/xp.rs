@@ -1,3 +1,5 @@
+use ABC_Game_Engine::renderer::Circle;
+
 use crate::*;
 struct XpOrb {
     pub(crate) xp: u32,
@@ -159,4 +161,19 @@ impl System for PlayerUpgradingSystem {
 fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: Entity) {
     let (player_component,) = entities_and_components.get_components_mut::<(Player,)>(player);
     player_component.bullets_at_once += 1;
+}
+
+pub(crate) struct XpBarSystem {
+    pub(crate) xp_bar_entity: Entity,
+    pub(crate) player_entity: Entity,
+}
+
+impl System for XpBarSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let (player_component,) =
+            entities_and_components.get_components::<(Player,)>(self.player_entity);
+        /*let (xp_bar_component,) =
+        entities_and_components.get_components_mut::<(XpBar,)>(self.xp_bar_entity);
+        xp_bar_component.xp = player_component.xp;*/
+    }
 }
