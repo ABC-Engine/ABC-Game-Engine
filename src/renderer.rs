@@ -14,6 +14,8 @@ use std::{
 use ABC_ECS::{EntitiesAndComponents, Entity, TryComponentsRef};
 
 use self::mask::Mask;
+pub mod ascii_renderer;
+pub mod canvas_renderer;
 pub mod mask;
 
 #[derive(Clone, Copy)]
@@ -78,14 +80,24 @@ impl From<Image> for Sprite {
     }
 }
 
-/// Renderer is responsible for rendering the scene
-pub struct Renderer {
+pub enum RendererType {
+    Ascii,
+    Canvas,
+}
+
+struct RendererParams {
     // width and height are determined by the camera,
     // but needs to be on the renderer for buffer size
     width: u32,
     height: u32,
     stretch: f32,
     pixel_scale: u16,
+    renderer_type: RendererType,
+}
+
+/// Renderer is responsible for rendering the scene
+pub struct Renderer {
+    renderer_params: RendererParams,
     // used for diffing
     // will be empty if no previous frame
     last_pixel_grid: Vec<Vec<Color>>,
@@ -105,38 +117,48 @@ impl Renderer {
         .expect("Error: failed to set terminal size");
 
         Renderer {
-            width: 160,
-            height: 160,
-            stretch: 2.3,
+            renderer_params: RendererParams {
+                width: 160,
+                height: 160,
+                stretch: 2.3,
+                pixel_scale: 1,
+                renderer_type: RendererType::Ascii,
+            },
             last_pixel_grid: vec![],
             handle,
-            pixel_scale: 1,
         }
     }
 
     pub fn set_stretch(&mut self, stretch: f32) {
-        self.stretch = stretch;
+        self.renderer_params.stretch = stretch;
     }
 
     pub fn set_pixel_scale(&mut self, pixel_scale: u16) {
-        self.pixel_scale = pixel_scale;
+        self.renderer_params.pixel_scale = pixel_scale;
 
         crossterm::queue!(
             self.handle,
             cursor::Hide,
             crossterm::terminal::SetSize(
-                self.width as u16 * self.pixel_scale,
-                self.height as u16 * self.pixel_scale
+                self.renderer_params.width as u16 * self.renderer_params.pixel_scale,
+                self.renderer_params.height as u16 * self.renderer_params.pixel_scale
             ),
             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
         )
         .expect("Error: failed to set terminal size");
     }
 
+    pub fn set_renderer_type(&mut self, renderer_type: RendererType) {
+        self.renderer_params.renderer_type = renderer_type;
+    }
+
     ///  Renders the scene
     pub fn render(&mut self, scene: &mut EntitiesAndComponents, scene_params: &SceneParams) {
         let mut pixel_grid =
-            vec![vec![scene_params.background_color; self.width as usize]; self.height as usize];
+            vec![
+                vec![scene_params.background_color; self.renderer_params.width as usize];
+                self.renderer_params.height as usize
+            ];
 
         let camera_entities = scene
             .get_entities_with_component::<Camera>()
@@ -152,17 +174,19 @@ impl Renderer {
                     .expect("renderer could not find a camera");
 
                 if camera_component.is_active == true {
-                    if self.width != camera_component.width as u32
-                        || self.height != camera_component.height as u32
+                    if self.renderer_params.width != camera_component.width as u32
+                        || self.renderer_params.height != camera_component.height as u32
                     {
-                        self.width = camera_component.width as u32;
-                        self.height = camera_component.height as u32;
+                        self.renderer_params.width = camera_component.width as u32;
+                        self.renderer_params.height = camera_component.height as u32;
                         crossterm::queue!(
                             self.handle,
                             cursor::Hide,
                             crossterm::terminal::SetSize(
-                                self.width as u16 * self.pixel_scale,
-                                self.height as u16 * self.pixel_scale
+                                self.renderer_params.width as u16
+                                    * self.renderer_params.pixel_scale,
+                                self.renderer_params.height as u16
+                                    * self.renderer_params.pixel_scale
                             ),
                             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
                         )
@@ -175,8 +199,8 @@ impl Renderer {
                         .expect("active camera does not have a transform!");
 
                     let opposite_camera_transform = Transform {
-                        x: -camera_transform.x + self.width as f64 / 2.0,
-                        y: -camera_transform.y + self.height as f64 / 2.0,
+                        x: -camera_transform.x + self.renderer_params.width as f64 / 2.0,
+                        y: -camera_transform.y + self.renderer_params.height as f64 / 2.0,
                         z: 0.0,
                         rotation: -camera_transform.rotation,
                         scale: 1.0 / camera_transform.scale,
@@ -189,7 +213,15 @@ impl Renderer {
                 }
             }
         }
-        self.render_pixel_grid(&pixel_grid, scene_params);
+
+        match self.renderer_params.renderer_type {
+            RendererType::Ascii => {
+                ascii_renderer::render_pixel_grid(self, &pixel_grid, scene_params)
+            }
+            RendererType::Canvas => {
+                canvas_renderer::render_pixel_grid(self, &pixel_grid, scene_params)
+            }
+        }
     }
 
     // not thread safe
@@ -240,19 +272,19 @@ impl Renderer {
                                 &circle,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                             ),
                             Sprite::Rectangle(rectangle) => render_rectangle(
                                 &rectangle,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                             ),
                             Sprite::Image(image) => render_texture(
                                 &image.texture,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                             ),
                             Sprite::Animation(animation) => {
                                 update_animation(animation);
@@ -261,7 +293,7 @@ impl Renderer {
                                     &current_frame.texture,
                                     &(transform + &transform_offset),
                                     pixel_grid,
-                                    self.stretch,
+                                    self.renderer_params.stretch,
                                 );
                             }
                         }
@@ -274,21 +306,21 @@ impl Renderer {
                                 &circle,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                                 mask,
                             ),
                             Sprite::Rectangle(rectangle) => render_rectangle_with_mask(
                                 &rectangle,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                                 mask,
                             ),
                             Sprite::Image(image) => render_texture_with_mask(
                                 &image.texture,
                                 &(transform + &transform_offset),
                                 pixel_grid,
-                                self.stretch,
+                                self.renderer_params.stretch,
                                 mask,
                             ),
                             Sprite::Animation(animation) => {
@@ -298,7 +330,7 @@ impl Renderer {
                                     &current_frame.texture,
                                     &(transform + &transform_offset),
                                     pixel_grid,
-                                    self.stretch,
+                                    self.renderer_params.stretch,
                                 );
                             }
                         }
@@ -328,66 +360,6 @@ impl Renderer {
                 self.render_objects(children, pixel_grid, transform_offset);
             }
         }
-    }
-
-    pub fn render_pixel_grid(&mut self, pixel_grid: &Vec<Vec<Color>>, scene_params: &SceneParams) {
-        // if the pixel scale is greater than 1, scale the pixel grid
-        // make sure that the pixel grid is not already scaled
-        if self.pixel_scale != 1 && pixel_grid.len() <= self.width as usize {
-            let mut scaled_pixel_grid =
-                vec![
-                    vec![Color::default(); (self.width * self.pixel_scale as u32) as usize];
-                    (self.height * self.pixel_scale as u32) as usize
-                ];
-
-            for (x, row) in pixel_grid.into_iter().enumerate() {
-                for (y, pixel) in row.into_iter().enumerate() {
-                    for i in 0..self.pixel_scale {
-                        for j in 0..self.pixel_scale {
-                            scaled_pixel_grid[x * self.pixel_scale as usize + i as usize]
-                                [y * self.pixel_scale as usize + j as usize] = *pixel;
-                        }
-                    }
-                }
-            }
-            self.render_pixel_grid(&scaled_pixel_grid, scene_params);
-            return;
-        }
-
-        let mut pixel_character = "".to_string();
-        for (x, row) in pixel_grid.into_iter().enumerate() {
-            for (y, pixel) in row.into_iter().enumerate() {
-                // if the pixel is the same as the last pixel, don't render it
-                if self.last_pixel_grid.len() != 0 && *pixel == self.last_pixel_grid[x][y] {
-                    continue;
-                }
-                crossterm::queue!(self.handle, cursor::MoveTo(y as u16, x as u16))
-                    .expect("Failed to move cursor");
-
-                // \x08 is backspace
-                if pixel.a == 0.0 {
-                    write!(self.handle, "\x08{}", " ").expect("failed to write white space");
-                } else {
-                    if scene_params.is_random_chars {
-                        pixel_character +=
-                            &char::from(rand::thread_rng().gen_range(33..126)).to_string();
-                    } else {
-                        pixel_character += &scene_params.character.to_string();
-                    }
-
-                    write!(
-                        self.handle,
-                        "\x08{}",
-                        pixel_character.truecolor(pixel.r, pixel.g, pixel.b)
-                    )
-                    .expect("failed to write pixel");
-                    pixel_character.clear();
-                }
-            }
-        }
-
-        self.handle.flush().expect("failed to flush stdout");
-        self.last_pixel_grid = pixel_grid.clone();
     }
 }
 

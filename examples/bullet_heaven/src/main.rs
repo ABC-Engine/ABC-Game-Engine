@@ -3,11 +3,13 @@ use core::f64;
 /// not yet complete
 use rand::Rng;
 use std::{time::Instant, vec};
+use ABC_Game_Engine::renderer::RendererType;
 use ABC_Game_Engine::renderer::{Animation, Circle, Image, Rectangle, Renderer, Sprite};
 use ABC_Game_Engine::*;
 use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
 use xp::*;
+use ABC_Game_Engine::renderer::mask::{Mask, MaskShape};
 
 const WINDOW_DIMS: (u32, u32) = (160, 160);
 const PLAYER_HIT_BOX_RADIUS: f64 = 5.0;
@@ -23,6 +25,8 @@ struct Player {
     range: u32,
     speed: f64,
     xp: u32,
+    /// placeholder for now doesn't do anything
+    xp_to_next_upgrade: u32,
     invincibility_time_ms: u128,
     last_hit: Instant,
     is_invincible: bool,
@@ -766,6 +770,7 @@ fn main() {
                 range: 80,
                 speed: 40.0,
                 xp: 0,
+                xp_to_next_upgrade: 10,
                 invincibility_time_ms: 500,
                 last_hit: Instant::now(),
                 is_invincible: false,
@@ -844,6 +849,58 @@ fn main() {
             background_sprite: Sprite::Image(Image {
                 texture: load_texture("Sample_Images/Grass_Background.png"),
             }),
+        }));
+    }
+
+    let xp_bar_entity: Entity;
+    {
+        let xp_bar_image = Image {
+            texture: load_texture("Sample_Images/Xp_Bar_Filling.png"),
+        };
+
+        let xp_ba_mask_rect = Rectangle {
+            width: 100.0,
+            height: 10000.0,
+            color: Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0.5,
+            },
+        };
+
+        let xp_bar_mask = Mask::new(
+            MaskShape::Rectangle(xp_ba_mask_rect),
+            Transform {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                rotation: 0.0,
+                scale: 1.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+        );
+
+        xp_bar_entity = scene.game_engine.entities_and_components.add_entity_with((
+            Sprite::Image(xp_bar_image),
+            Transform {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                rotation: 0.0,
+                scale: 1.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+            xp_bar_mask,
+        ));
+    }
+    {
+        scene.game_engine.add_system(Box::new(xp::XpBarSystem {
+            player_entity: player_object,
+            xp_bar_entity: xp_bar_entity,
+            camera_entity: camera_object,
         }));
     }
 

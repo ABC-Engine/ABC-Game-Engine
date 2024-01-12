@@ -1,3 +1,4 @@
+use crate::renderer::mask::Mask;
 use ABC_Game_Engine::renderer::Circle;
 
 use crate::*;
@@ -166,14 +167,38 @@ fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: E
 pub(crate) struct XpBarSystem {
     pub(crate) xp_bar_entity: Entity,
     pub(crate) player_entity: Entity,
+    pub(crate) camera_entity: Entity,
 }
 
 impl System for XpBarSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let (player_component,) =
-            entities_and_components.get_components::<(Player,)>(self.player_entity);
-        /*let (xp_bar_component,) =
-        entities_and_components.get_components_mut::<(XpBar,)>(self.xp_bar_entity);
-        xp_bar_component.xp = player_component.xp;*/
+        let (xp, xp_to_next_upgrade);
+        {
+            let (player_component,) =
+                entities_and_components.get_components::<(Player,)>(self.player_entity);
+            xp = player_component.xp;
+            xp_to_next_upgrade = player_component.xp_to_next_upgrade;
+        }
+
+        let camera_transform: Transform;
+        {
+            camera_transform = entities_and_components
+                .get_components::<(Transform,)>(self.camera_entity)
+                .0
+                .clone();
+        }
+        {
+            let (xp_bar_transform,) =
+                entities_and_components.get_components_mut::<(Transform,)>(self.xp_bar_entity);
+            xp_bar_transform.x = camera_transform.x;
+            xp_bar_transform.y = camera_transform.y;
+        }
+
+        {
+            let (xp_bar_mask,) =
+                entities_and_components.get_components_mut::<(Mask,)>(self.xp_bar_entity);
+
+            xp_bar_mask.transform.x = (xp as f64 / xp_to_next_upgrade as f64) * 81.0 + 19.0;
+        }
     }
 }
