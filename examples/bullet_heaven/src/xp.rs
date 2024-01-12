@@ -151,16 +151,18 @@ pub(crate) struct PlayerUpgradingSystem {
 impl System for PlayerUpgradingSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         let (player_component,) =
-            entities_and_components.get_components::<(Player,)>(self.player_entity);
-        if player_component.xp >= self.next_upgrade {
-            upgrade_player(entities_and_components, self.player_entity);
-            self.next_upgrade += 10;
+            entities_and_components.get_components_mut::<(Player,)>(self.player_entity);
+        if player_component.xp
+            >= player_component.xp_to_next_upgrade + player_component.last_upgrade_xp
+        {
+            upgrade_player(player_component);
+            player_component.last_upgrade_xp = player_component.xp;
+            player_component.xp_to_next_upgrade += self.next_upgrade;
         }
     }
 }
 
-fn upgrade_player(entities_and_components: &mut EntitiesAndComponents, player: Entity) {
-    let (player_component,) = entities_and_components.get_components_mut::<(Player,)>(player);
+fn upgrade_player(player_component: &mut Player) {
     player_component.bullets_at_once += 1;
 }
 
@@ -172,12 +174,13 @@ pub(crate) struct XpBarSystem {
 
 impl System for XpBarSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let (xp, xp_to_next_upgrade);
+        let (xp, xp_to_next_upgrade, last_upgrade_xp);
         {
             let (player_component,) =
                 entities_and_components.get_components::<(Player,)>(self.player_entity);
             xp = player_component.xp;
             xp_to_next_upgrade = player_component.xp_to_next_upgrade;
+            last_upgrade_xp = player_component.last_upgrade_xp;
         }
 
         let camera_transform: Transform;
@@ -187,6 +190,7 @@ impl System for XpBarSystem {
                 .0
                 .clone();
         }
+
         {
             let (xp_bar_transform,) =
                 entities_and_components.get_components_mut::<(Transform,)>(self.xp_bar_entity);
@@ -195,10 +199,20 @@ impl System for XpBarSystem {
         }
 
         {
-            let (xp_bar_mask,) =
-                entities_and_components.get_components_mut::<(Mask,)>(self.xp_bar_entity);
+            let children = entities_and_components
+                .get_components_mut::<(EntitiesAndComponents,)>(self.xp_bar_entity)
+                .0;
 
-            xp_bar_mask.transform.x = (xp as f64 / xp_to_next_upgrade as f64) * 81.0 + 19.0;
+            let mask_entity = children
+                .get_entities_with_component::<Mask>()
+                .nth(0)
+                .unwrap()
+                .clone();
+
+            let (xp_bar_mask,) = children.get_components_mut::<(Mask,)>(mask_entity);
+
+            xp_bar_mask.transform.x =
+                ((xp - last_upgrade_xp) as f64 / xp_to_next_upgrade as f64) * 64.0 + 19.0;
         }
     }
 }

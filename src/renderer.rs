@@ -239,16 +239,45 @@ impl Renderer {
                 .collect::<Vec<Entity>>();
 
             // sort entities by z value
+            // skips entities without a sprite and transform or children
             for entity in entities_with_sprite {
                 let (sprite, transform) = entities_and_components
                     .try_get_components_mut::<(Sprite, Transform)>(
                         entity, // can't fail unless done multithreaded in the future
                     );
-                if let (Some(sprite), Some(transform)) = (sprite, transform) {
-                    entity_depth_array.push(EntityDepthItem {
-                        entity,
-                        depth: transform.z,
-                    });
+                match (sprite, transform) {
+                    (Some(_), Some(transform)) => {
+                        entity_depth_array.push(EntityDepthItem {
+                            entity,
+                            depth: transform_offset.z + transform.z,
+                        });
+                    }
+                    _ => (),
+                }
+            }
+
+            let entities_with_children = entities_and_components
+                .get_entities_with_component::<EntitiesAndComponents>()
+                .cloned()
+                .collect::<Vec<Entity>>();
+            for entity in entities_with_children {
+                let (transform, children) = entities_and_components
+                    .try_get_components_mut::<(Transform, EntitiesAndComponents)>(entity);
+
+                match (transform, children) {
+                    (Some(transform), Some(_)) => {
+                        entity_depth_array.push(EntityDepthItem {
+                            entity,
+                            depth: transform_offset.z + transform.z,
+                        });
+                    }
+                    (None, Some(_)) => {
+                        entity_depth_array.push(EntityDepthItem {
+                            entity,
+                            depth: transform_offset.z,
+                        });
+                    }
+                    _ => (),
                 }
             }
         }
@@ -263,7 +292,6 @@ impl Renderer {
             {
                 // if the object doesn't have a sprite or transform, don't render it
                 match (sprite, mask, transform) {
-                    (None, None, None) => continue,
                     (Some(sprite), None, Some(transform)) => {
                         let transform = &transform.clone();
                         // check if object is circle or rectangle
@@ -337,7 +365,7 @@ impl Renderer {
                     }
                     // can no longer render an object with a sprite but no transform
                     // because the transform is used as an offset
-                    (Some(sprite), None, None) => {}
+                    (Some(_), None, None) => (),
                     _ => (),
                 }
             }

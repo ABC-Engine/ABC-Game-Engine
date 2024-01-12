@@ -25,6 +25,7 @@ struct Player {
     range: u32,
     speed: f64,
     xp: u32,
+    last_upgrade_xp: u32,
     /// placeholder for now doesn't do anything
     xp_to_next_upgrade: u32,
     invincibility_time_ms: u128,
@@ -770,6 +771,7 @@ fn main() {
                 range: 80,
                 speed: 40.0,
                 xp: 0,
+                last_upgrade_xp: 0,
                 xp_to_next_upgrade: 10,
                 invincibility_time_ms: 500,
                 last_hit: Instant::now(),
@@ -802,7 +804,7 @@ fn main() {
         scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
             camera_entity: camera_object,
             last_spawn: Instant::now(),
-            spawn_rate: 5.0,
+            spawn_rate: 2.0,
             distance_from_camera_min: 100.0,
             distance_from_camera_max: 200.0,
         }));
@@ -858,19 +860,19 @@ fn main() {
             texture: load_texture("Sample_Images/Xp_Bar_Filling.png"),
         };
 
-        let xp_ba_mask_rect = Rectangle {
+        let xp_bar_mask_rect = Rectangle {
             width: 100.0,
             height: 10000.0,
             color: Color {
                 r: 0,
                 g: 0,
                 b: 0,
-                a: 0.5,
+                a: 0.0,
             },
         };
 
         let xp_bar_mask = Mask::new(
-            MaskShape::Rectangle(xp_ba_mask_rect),
+            MaskShape::Rectangle(xp_bar_mask_rect),
             Transform {
                 x: 0.0,
                 y: 0.0,
@@ -882,8 +884,65 @@ fn main() {
             },
         );
 
-        xp_bar_entity = scene.game_engine.entities_and_components.add_entity_with((
+        let mut children = EntitiesAndComponents::new();
+
+        children.add_entity_with((
+            Sprite::Image(Image {
+                texture: load_texture("Sample_Images/Xp_Bar_Border.png"),
+            }),
+            Transform {
+                x: 0.0,
+                y: 0.0,
+                z: 100.0,
+                rotation: 0.0,
+                scale: 1.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+        ));
+
+        let white_xp_bar_background = Rectangle {
+            width: 62.0,
+            height: 3.0,
+            color: Color {
+                r: 255,
+                g: 255,
+                b: 255,
+                a: 1.0,
+            },
+        };
+
+        // this currently doesn't work, z-ordering only works between entities in the same parent
+        // TODO: fix the z-ordering system, maybe do a recursive collection of all children and sort them by z-order
+        children.add_entity_with((
+            Sprite::Rectangle(white_xp_bar_background),
+            Transform {
+                x: 0.0,
+                y: -72.0,
+                z: 10.0,
+                rotation: 0.0,
+                scale: 1.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+        ));
+
+        // for now, we can just make this a child of the xp bar entity
+        children.add_entity_with((
             Sprite::Image(xp_bar_image),
+            Transform {
+                x: 0.0,
+                y: 0.0,
+                z: 100.0,
+                rotation: 0.0,
+                scale: 1.0,
+                origin_x: 0.0,
+                origin_y: 0.0,
+            },
+            xp_bar_mask,
+        ));
+
+        xp_bar_entity = scene.game_engine.entities_and_components.add_entity_with((
             Transform {
                 x: 0.0,
                 y: 0.0,
@@ -893,7 +952,7 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-            xp_bar_mask,
+            children,
         ));
     }
     {
@@ -917,7 +976,6 @@ fn main() {
     }
 
     loop {
-        //std::env::set_var("RUST_BACKTRACE", "full");
         scene.game_engine.run();
 
         // should be implemented as a system later
