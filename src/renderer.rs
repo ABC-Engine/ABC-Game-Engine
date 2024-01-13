@@ -239,55 +239,6 @@ impl Renderer {
             &mut entity_depth_array,
         );
 
-        /*{
-            let entities_with_sprite = entities_and_components
-                .get_entities_with_component::<Sprite>()
-                .cloned()
-                .collect::<Vec<Entity>>();
-
-            // sort entities by z value
-            // skips entities without a sprite and transform or children
-            for entity in entities_with_sprite {
-                let (sprite, transform) = entities_and_components
-                    .try_get_components_mut::<(Sprite, Transform)>(
-                        entity, // can't fail unless done multithreaded in the future
-                    );
-                match (sprite, transform) {
-                    (Some(_), Some(transform)) => {
-                        entity_depth_array.push(EntityDepthItem {
-                            entity,
-                            depth: transform_offset.z + transform.z,
-                        });
-                    }
-                    _ => (),
-                }
-            }
-
-            let entities_with_children = entities_and_components
-                .get_entities_with_component::<EntitiesAndComponents>()
-                .cloned()
-                .collect::<Vec<Entity>>();
-            for entity in entities_with_children {
-                let (transform, children) = entities_and_components
-                    .try_get_components_mut::<(Transform, EntitiesAndComponents)>(entity);
-
-                match (transform, children) {
-                    (Some(transform), Some(_)) => {
-                        entity_depth_array.push(EntityDepthItem {
-                            entity,
-                            depth: transform_offset.z + transform.z,
-                        });
-                    }
-                    (None, Some(_)) => {
-                        entity_depth_array.push(EntityDepthItem {
-                            entity,
-                            depth: transform_offset.z,
-                        });
-                    }
-                    _ => (),
-                }
-            }
-        }*/
         entity_depth_array.sort();
 
         // could possibly be done multithreaded and combine layers afterward
@@ -302,7 +253,7 @@ impl Renderer {
             {
                 // if the object doesn't have a sprite or transform, don't render it
                 match (sprite, mask, transform) {
-                    (Some(sprite), None, Some(transform)) => {
+                    (Some(sprite), None, Some(_)) => {
                         let transform = &(entity_depth_item.transform);
                         // check if object is circle or rectangle
                         match sprite {
@@ -379,26 +330,6 @@ impl Renderer {
                     _ => (),
                 }
             }
-
-            /*
-            // if the object has a transform and children, render the children with the transform as an offset
-            if let (Some(children), Some(transform)) = entities_and_components
-                .try_get_components_mut::<(EntitiesAndComponents, Transform)>(
-                    entity, // again, can't fail unless done multithreaded in the future
-                )
-            {
-                let transform = &*transform;
-                self.render_objects(children, pixel_grid, transform + &transform_offset);
-            }
-            // if the object has children but no transform, render the children without any offset
-            else if let Some(children) = entities_and_components
-                .try_get_component_mut::<EntitiesAndComponents>(
-                    entity, // again, can't fail unless done multithreaded in the future
-                )
-            {
-                self.render_objects(children, pixel_grid, transform_offset);
-            }
-            */
         }
     }
 }
