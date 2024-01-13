@@ -232,7 +232,14 @@ impl Renderer {
         transform_offset: Transform,
     ) {
         let mut entity_depth_array = vec![];
-        {
+        collect_renderable_entities(
+            &entities_and_components,
+            vec![],
+            &transform_offset,
+            &mut entity_depth_array,
+        );
+
+        /*{
             let entities_with_sprite = entities_and_components
                 .get_entities_with_component::<Sprite>()
                 .cloned()
@@ -280,37 +287,40 @@ impl Renderer {
                     _ => (),
                 }
             }
-        }
+        }*/
         entity_depth_array.sort();
 
         // could possibly be done multithreaded and combine layers afterward
         for entity_depth_item in entity_depth_array {
-            let entity = entity_depth_item.entity;
+            let entities = entity_depth_item.entity;
 
-            let (sprite, mask, transform) = entities_and_components
-                .try_get_components_mut::<(Sprite, Mask, Transform)>(entity_depth_item.entity);
+            let (current_entities_and_components, entity) =
+                get_entities_and_components_from_entity_list(entities_and_components, entities);
+
+            let (sprite, mask, transform) = current_entities_and_components
+                .try_get_components_mut::<(Sprite, Mask, Transform)>(entity);
             {
                 // if the object doesn't have a sprite or transform, don't render it
                 match (sprite, mask, transform) {
                     (Some(sprite), None, Some(transform)) => {
-                        let transform = &transform.clone();
+                        let transform = &(entity_depth_item.transform);
                         // check if object is circle or rectangle
                         match sprite {
                             Sprite::Circle(circle) => render_circle(
                                 &circle,
-                                &(transform + &transform_offset),
+                                &transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                             ),
                             Sprite::Rectangle(rectangle) => render_rectangle(
                                 &rectangle,
-                                &(transform + &transform_offset),
+                                &transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                             ),
                             Sprite::Image(image) => render_texture(
                                 &image.texture,
-                                &(transform + &transform_offset),
+                                &transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                             ),
@@ -319,7 +329,7 @@ impl Renderer {
                                 let current_frame = &animation.frames[animation.current_frame];
                                 render_texture(
                                     &current_frame.texture,
-                                    &(transform + &transform_offset),
+                                    &transform,
                                     pixel_grid,
                                     self.renderer_params.stretch,
                                 );
@@ -370,6 +380,7 @@ impl Renderer {
                 }
             }
 
+            /*
             // if the object has a transform and children, render the children with the transform as an offset
             if let (Some(children), Some(transform)) = entities_and_components
                 .try_get_components_mut::<(EntitiesAndComponents, Transform)>(
@@ -387,6 +398,7 @@ impl Renderer {
             {
                 self.render_objects(children, pixel_grid, transform_offset);
             }
+            */
         }
     }
 }
@@ -405,29 +417,124 @@ fn update_animation(animation: &mut Animation) {
     }
 }
 
+/// A recursive function that collects all renderable entities in the scene
+fn collect_renderable_entities(
+    entities_and_components: &EntitiesAndComponents,
+    // the list of parent entities to get to the EntitiesAndComponents that is passed, starting with the root
+    parent_entities: Vec<Entity>,
+    transform_offset: &Transform,
+    out_list: &mut Vec<EntityDepthItem>,
+) {
+    let entities_with_sprite = entities_and_components
+        .get_entities_with_component::<Sprite>()
+        .cloned()
+        .collect::<Vec<Entity>>();
+
+    for entity in entities_with_sprite {
+        let (sprite, transform) =
+            entities_and_components.try_get_components::<(Sprite, Transform)>(entity);
+
+        match (sprite, transform) {
+            (Some(_), Some(transform)) => {
+                let mut new_parents = parent_entities.clone();
+                new_parents.push(entity);
+                out_list.push(EntityDepthItem {
+                    entity: new_parents,
+                    transform: transform + transform_offset,
+                });
+            }
+            _ => (),
+        }
+    }
+
+    let entities_with_children = entities_and_components
+        .get_entities_with_component::<EntitiesAndComponents>()
+        .cloned()
+        .collect::<Vec<Entity>>();
+
+    for entity in entities_with_children {
+        let (transform, children) = entities_and_components
+            .try_get_components::<(Transform, EntitiesAndComponents)>(entity);
+
+        match (transform, children) {
+            (Some(transform), Some(children)) => {
+                let mut new_parents = parent_entities.clone();
+                new_parents.push(entity);
+                collect_renderable_entities(
+                    children,
+                    new_parents,
+                    &(transform_offset + transform),
+                    out_list,
+                )
+            }
+            (None, Some(children)) => {
+                let mut new_parents = parent_entities.clone();
+                new_parents.push(entity);
+                collect_renderable_entities(children, new_parents, transform_offset, out_list)
+            }
+            _ => (),
+        }
+    }
+}
+
+/// takes a Vec<Entity> and returns the EntitiesAndComponents and Entity that it points to
+fn get_entities_and_components_from_entity_list(
+    entities_and_components: &mut EntitiesAndComponents,
+    mut entity_list: Vec<Entity>,
+) -> (&mut EntitiesAndComponents, Entity) {
+    if entity_list.len() == 0 {
+        panic!("entity list is empty, this should never happen, please report this as a bug");
+    }
+    if entity_list.len() == 1 {
+        return (entities_and_components, entity_list[0]);
+    }
+
+    let mut current_entities_and_components = entities_and_components;
+    let mut current_entity = entity_list[0];
+    // the last entity in the list is the one we want to return, and it's not a parent so no need to check for children
+    let last_entity = entity_list.pop().unwrap();
+
+    for entity in entity_list {
+        let children = current_entities_and_components
+            .try_get_components_mut::<(EntitiesAndComponents,)>(current_entity)
+            .0
+            .expect(
+                "failed to get children, this should never happen, please report this as a bug",
+            );
+
+        current_entities_and_components = children;
+        current_entity = entity;
+    }
+    (current_entities_and_components, last_entity)
+}
+
 struct EntityDepthItem {
-    entity: Entity,
-    depth: f64,
+    /// ordered by child depth, so entity1 has entity2 as a child which has entity3 as a child
+    /// entity1 will not be rendered as part of the pass for this object just entity3.
+    /// entity1 and entity 2 will have its own pass
+    entity: Vec<Entity>,
+    transform: Transform,
 }
 
 impl Eq for EntityDepthItem {}
 
 impl PartialEq for EntityDepthItem {
     fn eq(&self, other: &Self) -> bool {
-        self.depth == other.depth
+        self.transform.z == other.transform.z
     }
 }
 
 impl PartialOrd for EntityDepthItem {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.depth.partial_cmp(&other.depth)
+        self.transform.z.partial_cmp(&other.transform.z)
     }
 }
 
 impl Ord for EntityDepthItem {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.depth
-            .partial_cmp(&other.depth)
+        self.transform
+            .z
+            .partial_cmp(&other.transform.z)
             .expect("failed to compare entity depth")
     }
 }
