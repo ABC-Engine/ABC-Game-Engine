@@ -1,4 +1,4 @@
-use crate::camera::Camera;
+use crate::camera::{self, Camera};
 use crate::{
     render_circle, render_circle_with_mask, render_rectangle, render_rectangle_with_mask,
     render_texture, render_texture_with_mask, Color, Scene, SceneParams, Transform,
@@ -169,9 +169,13 @@ impl Renderer {
         } else {
             // this will not panic if no active camera is found
             for camera_entity in camera_entities {
-                let camera_component = scene
-                    .try_get_component::<Camera>(camera_entity)
-                    .expect("renderer could not find a camera");
+                let camera_component: Camera;
+                {
+                    let camera_component_ref = scene
+                        .try_get_component::<Camera>(camera_entity)
+                        .expect("renderer could not find a camera");
+                    camera_component = (&**camera_component_ref).clone();
+                }
 
                 if camera_component.is_active == true {
                     if self.renderer_params.width != camera_component.width as u32
@@ -208,7 +212,12 @@ impl Renderer {
                         origin_y: 0.0,
                     };
 
-                    self.render_objects(scene, &mut pixel_grid, opposite_camera_transform.clone());
+                    self.render_objects(
+                        scene,
+                        &mut pixel_grid,
+                        opposite_camera_transform.clone(),
+                        &camera_component,
+                    );
                     break;
                 }
             }
@@ -229,13 +238,15 @@ impl Renderer {
         &self,
         entities_and_components: &mut EntitiesAndComponents,
         pixel_grid: &mut Vec<Vec<Color>>,
-        transform_offset: Transform,
+        camera_offset: Transform,
+        camera: &Camera,
     ) {
         let mut entity_depth_array = vec![];
+
         collect_renderable_entities(
             &entities_and_components,
             vec![],
-            &transform_offset,
+            &camera_offset,
             &mut entity_depth_array,
         );
 
@@ -255,6 +266,15 @@ impl Renderer {
                 match (sprite, mask, transform) {
                     (Some(sprite), None, Some(_)) => {
                         let transform = &(entity_depth_item.transform);
+                        if !camera::object_is_in_view_of_camera(
+                            camera,
+                            camera_offset,
+                            transform,
+                            sprite,
+                        ) {
+                            continue;
+                        }
+
                         // check if object is circle or rectangle
                         match sprite {
                             Sprite::Circle(circle) => render_circle(
