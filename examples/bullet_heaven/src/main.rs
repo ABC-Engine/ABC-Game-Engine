@@ -893,7 +893,7 @@ fn main() {
             Transform {
                 x: 0.0,
                 y: 0.0,
-                z: 100.0,
+                z: 150.0,
                 rotation: 0.0,
                 scale: 1.0,
                 origin_x: 0.0,
@@ -946,7 +946,7 @@ fn main() {
             Transform {
                 x: 0.0,
                 y: 0.0,
-                z: 100.0,
+                z: 0.0,
                 rotation: 0.0,
                 scale: 1.0,
                 origin_x: 0.0,

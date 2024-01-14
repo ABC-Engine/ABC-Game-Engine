@@ -288,26 +288,26 @@ impl Renderer {
                         }
                     }
                     (Some(sprite), Some(mask), Some(transform)) => {
-                        let transform = &transform.clone();
+                        let transform = &(&transform.clone() + &entity_depth_item.transform);
                         // check if object is circle or rectangle
                         match sprite {
                             Sprite::Circle(circle) => render_circle_with_mask(
                                 &circle,
-                                &(transform + &transform_offset),
+                                transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                                 mask,
                             ),
                             Sprite::Rectangle(rectangle) => render_rectangle_with_mask(
                                 &rectangle,
-                                &(transform + &transform_offset),
+                                transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                                 mask,
                             ),
                             Sprite::Image(image) => render_texture_with_mask(
                                 &image.texture,
-                                &(transform + &transform_offset),
+                                transform,
                                 pixel_grid,
                                 self.renderer_params.stretch,
                                 mask,
@@ -317,7 +317,7 @@ impl Renderer {
                                 let current_frame = &animation.frames[animation.current_frame];
                                 render_texture(
                                     &current_frame.texture,
-                                    &(transform + &transform_offset),
+                                    transform,
                                     pixel_grid,
                                     self.renderer_params.stretch,
                                 );
