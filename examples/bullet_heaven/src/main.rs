@@ -2,6 +2,7 @@ use core::f64;
 /// A basic bullet heaven made with the library
 /// not yet complete
 use rand::Rng;
+use std::thread;
 use std::{time::Instant, vec};
 use ABC_Game_Engine::renderer::RendererType;
 use ABC_Game_Engine::renderer::{Animation, Circle, Image, Rectangle, Renderer, Sprite};
@@ -976,6 +977,7 @@ fn main() {
     }
 
     loop {
+        thread::sleep(std::time::Duration::from_millis(20));
         scene.game_engine.run();
 
         // should be implemented as a system later

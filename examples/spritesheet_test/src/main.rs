@@ -6,6 +6,7 @@ use ABC_Game_Engine::{camera::Camera, Transform};
 const WINDOW_DIMS: (u32, u32) = (80, 80);
 
 struct MovementSystem {
+    camera_entity: Entity,
     player: Entity,
     /// 0 = UP_INDEX, 1 = RIGHT_INDEX, 2 = DOWN_INDEX, 3 = LEFT_INDEX
     idle_animations: Vec<Animation>,
@@ -49,6 +50,15 @@ impl System for MovementSystem {
                 normalized_dir[0] /= magnitude;
                 normalized_dir[1] /= magnitude;
             }
+        }
+
+        {
+            let camera_transform = &mut entities_and_components
+                .get_components_mut::<(Transform,)>(self.camera_entity)
+                .0;
+
+            camera_transform.x += normalized_dir[0] * 10.0 * delta_time;
+            camera_transform.y += normalized_dir[1] * 10.0 * delta_time;
         }
 
         let (transform, sprite) =
@@ -111,6 +121,7 @@ fn main() {
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     let player_entity: Entity;
+    let camera_entity: Entity;
     {
         let entities_and_components = &mut scene.game_engine.entities_and_components;
 
@@ -126,11 +137,12 @@ fn main() {
 
         let idle_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_idle.png");
 
+        let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
         player_entity = entities_and_components.add_entity_with((
             Sprite::Animation(idle_animations[0].clone()),
             Transform {
-                x: 40.0,
-                y: 20.0,
+                x: 20.0,
+                y: 10.0,
                 z: 0.0,
                 scale: 1.0,
                 rotation: 0.0,
@@ -139,9 +151,7 @@ fn main() {
             },
         ));
 
-        let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
-
-        entities_and_components.add_entity_with((camera, Transform::default()));
+        camera_entity = entities_and_components.add_entity_with((camera, Transform::default()));
     }
 
     {
@@ -149,6 +159,7 @@ fn main() {
         let walk_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_walk.png");
 
         scene.game_engine.add_system(Box::new(MovementSystem {
+            camera_entity,
             player: player_entity,
             idle_animations,
             walk_animations,
