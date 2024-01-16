@@ -12,6 +12,7 @@ pub use resources::*;
 pub use resources::{delta_time, input};
 pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
 pub mod camera;
+pub mod physics;
 pub mod renderer;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
