@@ -267,15 +267,6 @@ impl Renderer {
                     (Some(sprite), None, Some(_)) => {
                         let transform = &(entity_depth_item.transform);
 
-                        // print the entity transform and the camera transform
-                        /*log::warn!(
-                            "(x,y) : ({}, {}), ({}, {})",
-                            transform.x,
-                            transform.y,
-                            camera_offset.x,
-                            camera_offset.y
-                        );*/
-
                         if !camera::object_is_in_view_of_camera(camera, transform, sprite) {
                             continue;
                         }

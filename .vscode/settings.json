@@ -21,6 +21,8 @@
         ".\\examples\\mask_test\\Cargo.toml",
         ".\\examples\\mask_test\\Cargo.toml",
         ".\\examples\\mask_test\\Cargo.toml",
-        ".\\examples\\mask_test\\Cargo.toml"
+        ".\\examples\\mask_test\\Cargo.toml",
+        ".\\examples\\physics_test\\Cargo.toml",
+        ".\\examples\\physics_test\\Cargo.toml"
     ]
 }
