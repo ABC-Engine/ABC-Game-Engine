@@ -5,8 +5,14 @@ pub enum Collider {
     Box(BoxCollider),
 }
 
-struct CircleCollider {
+pub struct CircleCollider {
     radius: f64,
+}
+
+impl CircleCollider {
+    pub fn new(radius: f64) -> Self {
+        Self { radius }
+    }
 }
 
 impl From<CircleCollider> for Collider {
@@ -15,7 +21,7 @@ impl From<CircleCollider> for Collider {
     }
 }
 
-struct BoxCollider {
+pub struct BoxCollider {
     width: f64,
     height: f64,
 }
@@ -34,14 +40,17 @@ impl From<BoxCollider> for Collider {
 
 // I am not sure if there is a way to generically implement this for all types that implement Collider
 // Because, the number of functions needed to implement this would be n^2, where n is the number of types that implement Collider
+
 fn circle_circle_collision(
     circle_collider_1: &CircleCollider,
     circle_1_transform: &mut Transform,
     circle_collider_2: &CircleCollider,
     circle_2_transform: &mut Transform,
 ) -> (bool, f32) {
-    let combined_radii = (circle_collider_1.radius + circle_collider_2.radius).powi(2);
-    let distance_between_centers = (circle_collider_1.radius - circle_collider_2.radius).powi(2);
+    let combined_radii = circle_collider_1.radius + circle_collider_2.radius;
+    let distance_between_centers = ((circle_1_transform.x - circle_2_transform.x).powi(2)
+        + (circle_1_transform.y - circle_2_transform.y).powi(2))
+    .sqrt();
 
     (
         distance_between_centers <= combined_radii,
@@ -170,11 +179,11 @@ fn box_box_collision(
     (false, 0.0)
 }
 
-pub struct ColliderSystem {}
+pub struct CollisionSystem {}
 
 /// A basic O(n^2) naive collision detection system, this will be replaced with a quadtree in the near future (hopefully)
 /// I just wanted to get something working for now  ¯\_(ツ)_/¯
-impl System for ColliderSystem {
+impl System for CollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         let entities = entities_and_components
             .get_entities_with_component::<Collider>()
@@ -267,9 +276,16 @@ fn resolve_collision(transform_1: &mut Transform, transform_2: &mut Transform, d
     let transform_2_x = transform_2.x;
     let transform_2_y = transform_2.y;
 
-    let transform_1_x = transform_1_x + depth as f64;
-    let transform_1_y = transform_1_y + depth as f64;
+    let dx = transform_1_x - transform_2_x;
+    let dy = transform_1_y - transform_2_y;
 
-    let transform_2_x = transform_2_x - depth as f64;
-    let transform_2_y = transform_2_y - depth as f64;
+    // for now we are going to push the objects apart by half the depth of the collision
+    // this is not a perfect solution, but it is good enough for now, in the future I think it should be proportional to the mass of the objects
+
+    let depth = depth as f64;
+    transform_1.x += dx * depth / 2.0;
+    transform_1.y += dy * depth / 2.0;
+
+    transform_2.x -= dx * depth / 2.0;
+    transform_2.y -= dy * depth / 2.0;
 }

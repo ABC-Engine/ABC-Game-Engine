@@ -195,6 +195,14 @@ impl Renderer {
                             crossterm::terminal::Clear(crossterm::terminal::ClearType::All),
                         )
                         .expect("Error: failed to set terminal size");
+
+                        pixel_grid = vec![
+                            vec![
+                                scene_params.background_color;
+                                self.renderer_params.width as usize
+                            ];
+                            self.renderer_params.height as usize
+                        ];
                     }
 
                     let camera_transform = scene
