@@ -1,10 +1,38 @@
 use crate::*;
 
-pub enum Collider {
+#[derive(Clone, Copy)]
+pub struct Collider {
+    pub shape: ColliderShape,
+    pub properties: ColliderProperties,
+}
+
+impl Collider {
+    pub fn new(shape: ColliderShape, properties: ColliderProperties) -> Self {
+        Self { shape, properties }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ColliderProperties {
+    is_static: bool,
+}
+
+impl ColliderProperties {
+    pub fn new(is_static: bool) -> Self {
+        Self { is_static }
+    }
+    pub fn default() -> Self {
+        Self { is_static: false }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum ColliderShape {
     Circle(CircleCollider),
     Box(BoxCollider),
 }
 
+#[derive(Clone, Copy)]
 pub struct CircleCollider {
     radius: f64,
 }
@@ -15,12 +43,13 @@ impl CircleCollider {
     }
 }
 
-impl From<CircleCollider> for Collider {
+impl From<CircleCollider> for ColliderShape {
     fn from(circle_collider: CircleCollider) -> Self {
         Self::Circle(circle_collider)
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct BoxCollider {
     width: f64,
     height: f64,
@@ -32,7 +61,7 @@ impl BoxCollider {
     }
 }
 
-impl From<BoxCollider> for Collider {
+impl From<BoxCollider> for ColliderShape {
     fn from(box_collider: BoxCollider) -> Self {
         Self::Box(box_collider)
     }
@@ -46,16 +75,25 @@ fn circle_circle_collision(
     circle_1_transform: &mut Transform,
     circle_collider_2: &CircleCollider,
     circle_2_transform: &mut Transform,
-) -> (bool, f32) {
+) -> (bool, [f64; 2]) {
     let combined_radii = circle_collider_1.radius + circle_collider_2.radius;
     let distance_between_centers = ((circle_1_transform.x - circle_2_transform.x).powi(2)
         + (circle_1_transform.y - circle_2_transform.y).powi(2))
     .sqrt();
 
-    (
-        distance_between_centers <= combined_radii,
-        (combined_radii - distance_between_centers) as f32,
-    )
+    let normalized_vector = [
+        (circle_1_transform.x - circle_2_transform.x) / distance_between_centers,
+        (circle_1_transform.y - circle_2_transform.y) / distance_between_centers,
+    ];
+
+    let magnitude = (distance_between_centers - combined_radii);
+
+    let force_vector = [
+        -normalized_vector[0] * magnitude,
+        -normalized_vector[1] * magnitude,
+    ];
+
+    (distance_between_centers <= combined_radii, force_vector)
 }
 
 /// returns if there is a collision and the depth of the collision
@@ -64,7 +102,7 @@ fn circle_box_collision(
     circle_transform: &Transform,
     box_collider: &BoxCollider,
     box_transform: &Transform,
-) -> (bool, f32) {
+) -> (bool, [f64; 2]) {
     let circle_x = circle_transform.x;
     let circle_y = circle_transform.y;
     let circle_radius = circle_collider.radius;
@@ -74,37 +112,35 @@ fn circle_box_collision(
     let box_width = box_collider.width;
     let box_height = box_collider.height;
 
-    let corners = [
-        (box_x, box_y),
-        (box_x + box_width, box_y),
-        (box_x, box_y + box_height),
-        (box_x + box_width, box_y + box_height),
-    ];
+    // I believe this is how I set up the corners to render
+    let closest_x = circle_x.clamp(box_x - box_width / 2.0, box_x + box_width / 2.0);
+    let closest_y = circle_y.clamp(box_y - box_height / 2.0, box_y + box_height / 2.0);
 
-    let mut closest_corner = corners[0];
-    let mut closest_distance = f32::INFINITY;
-
-    for corner in corners.iter() {
-        let corner_x = corner.0;
-        let corner_y = corner.1;
-
-        let distance_between_centers = ((circle_x - corner_x).powi(2)
-            + (circle_y - corner_y).powi(2))
-        .sqrt()
-        .powi(2);
-
-        if distance_between_centers <= circle_radius.powi(2) {
-            return (
-                true,
-                (circle_radius - distance_between_centers.sqrt()) as f32,
-            );
-        }
-    }
-
-    if closest_distance <= circle_radius as f32 {
-        return (true, (circle_radius as f32 - closest_distance) as f32);
+    if closest_x == circle_x && closest_y == circle_y {
+        // the circle center is inside the box i'll work out the exact depth later
+        // Placeholder for now, it shouldn't really happen anyway
+        return (true, [circle_radius, circle_radius]);
     } else {
-        return (false, 0.0);
+        // calculate the distance between the center of the circle and the closest point on the box
+        let distance_between_centers =
+            ((circle_x - closest_x).powi(2) + (circle_y - closest_y).powi(2)).sqrt();
+
+        if distance_between_centers <= circle_radius {
+            let vector = [(closest_x - circle_x), (closest_y - circle_y)];
+            let normalized_vector = [
+                vector[0] / distance_between_centers,
+                vector[1] / distance_between_centers,
+            ];
+
+            let force_magnitude = distance_between_centers - circle_radius;
+            let force_vector = [
+                normalized_vector[0] * force_magnitude,
+                normalized_vector[1] * force_magnitude,
+            ];
+            return (true, force_vector);
+        } else {
+            return (false, [0.0, 0.0]);
+        }
     }
 }
 
@@ -114,7 +150,7 @@ fn box_box_collision(
     box_transform_1: &Transform,
     box_collider_2: &BoxCollider,
     box_transform_2: &Transform,
-) -> (bool, f32) {
+) -> (bool, [f64; 2]) {
     let box_1_x = box_transform_1.x;
     let box_1_y = box_transform_1.y;
     let box_1_width = box_collider_1.width;
@@ -130,10 +166,6 @@ fn box_box_collision(
         && box_1_y < box_2_y + box_2_height
         && box_1_y + box_1_height > box_2_y
     {
-        // trace the line from the corner of box 1 which is colliding to the center of box 2
-        // and trace the line out to the edge of box 2 then find the distance between the edge point of box 2
-        // and the corner of box 1, that is our collision depth
-
         let corners = [
             (box_1_x, box_1_y),
             (box_1_x + box_1_width, box_1_y),
@@ -148,10 +180,8 @@ fn box_box_collision(
             let corner_x = corner.0;
             let corner_y = corner.1;
 
-            let distance_between_centers = ((box_2_x - corner_x).powi(2)
-                + (box_2_y - corner_y).powi(2))
-            .sqrt()
-            .powi(2);
+            let distance_between_centers =
+                ((box_2_x - corner_x).powi(2) + (box_2_y - corner_y).powi(2)).sqrt();
 
             if distance_between_centers <= closest_distance as f64 {
                 closest_corner = *corner;
@@ -162,21 +192,40 @@ fn box_box_collision(
         let closest_corner_x = closest_corner.0;
         let closest_corner_y = closest_corner.1;
 
-        let (dx, dy) = (box_2_x - closest_corner_x, box_2_y - closest_corner_y);
-        let slope = dy / dx;
+        let distance_to_positive_bounds = [
+            box_2_x + box_2_width - closest_corner_x,
+            box_2_y + box_2_width - closest_corner_y,
+        ];
 
-        let (p1_x, p1_y) = (corners[0].0, corners[0].1);
-        let (p2_x, p2_y) = (corners[1].0, corners[1].1);
+        let distance_to_negative_bounds = [
+            -(box_2_x - box_2_width - closest_corner_x),
+            -(box_2_y - box_2_width - closest_corner_y),
+        ];
 
-        // desmos equation: P_{4}=-\left(\left|\left(P_{3}.x-P_{1}.x\right)+\left(P_{3}.y-P_{2}.y\right)\right|+\left|\left(P_{3}.x-P_{2}.x\right)-\left(P_{3}.y-P_{2}.y\right)\right|-\operatorname{abs}\left(P_{1}.x-P_{2}.x\right)\right)
-        let intersection_depth = -(((closest_corner_x - p1_x) + (closest_corner_y - p2_y)).abs()
-            + ((closest_corner_x - p2_x) + (closest_corner_y - p2_y)).abs())
-            - (p1_x - p2_x).abs();
+        let smallest_x = distance_to_positive_bounds[0].min(distance_to_negative_bounds[0]);
+        let smallest_y = distance_to_positive_bounds[1].min(distance_to_negative_bounds[1]);
+        let smallest_distance = smallest_x.min(smallest_y);
 
-        return (true, intersection_depth as f32);
+        let closest_point: [f64; 2];
+        if smallest_distance == distance_to_positive_bounds[0] {
+            closest_point = [box_2_x + box_2_width, closest_corner_y];
+        } else if smallest_distance == distance_to_negative_bounds[0] {
+            closest_point = [box_2_x - box_2_width, closest_corner_y];
+        } else if smallest_distance == distance_to_positive_bounds[1] {
+            closest_point = [closest_corner_x, box_2_y + box_2_height];
+        } else {
+            closest_point = [closest_corner_x, box_2_y - box_2_height];
+        }
+
+        let vec_to_move = [
+            closest_point[0] - closest_corner_x,
+            closest_point[1] - closest_corner_y,
+        ];
+
+        return (true, vec_to_move);
     }
 
-    (false, 0.0)
+    (false, [0.0, 0.0])
 }
 
 pub struct CollisionSystem {}
@@ -215,15 +264,20 @@ impl System for CollisionSystem {
     }
 }
 
+// there is a problem with this for now, I believe each collision is being resolved twice, once for each entity
 fn check_and_resolve_collision(
     collider_1: &Collider,
     transform_1: &mut Transform,
     collider_2: &Collider,
     transform_2: &mut Transform,
 ) -> bool {
-    match (collider_1, collider_2) {
-        (Collider::Circle(circle_collider_1), Collider::Circle(circle_collider_2)) => {
-            let (is_colliding, depth) = circle_circle_collision(
+    if collider_1.properties.is_static && collider_2.properties.is_static {
+        return false;
+    }
+
+    match (&collider_1.shape, &collider_2.shape) {
+        (ColliderShape::Circle(circle_collider_1), ColliderShape::Circle(circle_collider_2)) => {
+            let (is_colliding, force_vec) = circle_circle_collision(
                 circle_collider_1,
                 transform_1,
                 circle_collider_2,
@@ -231,37 +285,61 @@ fn check_and_resolve_collision(
             );
 
             if is_colliding {
-                resolve_collision(transform_1, transform_2, depth);
+                resolve_collision(
+                    transform_1,
+                    &collider_1.properties,
+                    transform_2,
+                    &collider_2.properties,
+                    force_vec,
+                );
                 return true;
             }
             return false;
         }
-        (Collider::Circle(circle_collider), Collider::Box(box_collider)) => {
-            let (is_colliding, depth) =
+        (ColliderShape::Circle(circle_collider), ColliderShape::Box(box_collider)) => {
+            let (is_colliding, force_vec) =
                 circle_box_collision(circle_collider, transform_1, box_collider, transform_2);
 
             if is_colliding {
-                resolve_collision(transform_1, transform_2, depth);
+                resolve_collision(
+                    transform_1,
+                    &collider_1.properties,
+                    transform_2,
+                    &collider_2.properties,
+                    force_vec,
+                );
                 return true;
             }
             return false;
         }
-        (Collider::Box(box_collider), Collider::Circle(circle_collider)) => {
-            let (is_colliding, depth) =
+        (ColliderShape::Box(box_collider), ColliderShape::Circle(circle_collider)) => {
+            let (is_colliding, force_vec) =
                 circle_box_collision(circle_collider, transform_1, box_collider, transform_2);
 
             if is_colliding {
-                resolve_collision(transform_1, transform_2, depth);
+                resolve_collision(
+                    transform_1,
+                    &collider_1.properties,
+                    transform_2,
+                    &collider_2.properties,
+                    force_vec,
+                );
                 return true;
             }
             return false;
         }
-        (Collider::Box(box_collider_1), Collider::Box(box_collider_2)) => {
-            let (is_colliding, depth) =
+        (ColliderShape::Box(box_collider_1), ColliderShape::Box(box_collider_2)) => {
+            let (is_colliding, force_vec) =
                 box_box_collision(box_collider_1, transform_1, box_collider_2, transform_2);
 
             if is_colliding {
-                resolve_collision(transform_1, transform_2, depth);
+                resolve_collision(
+                    transform_1,
+                    &collider_1.properties,
+                    transform_2,
+                    &collider_2.properties,
+                    force_vec,
+                );
                 return true;
             }
             return false;
@@ -269,23 +347,28 @@ fn check_and_resolve_collision(
     }
 }
 
-fn resolve_collision(transform_1: &mut Transform, transform_2: &mut Transform, depth: f32) {
-    let transform_1_x = transform_1.x;
-    let transform_1_y = transform_1.y;
-
-    let transform_2_x = transform_2.x;
-    let transform_2_y = transform_2.y;
-
-    let dx = transform_1_x - transform_2_x;
-    let dy = transform_1_y - transform_2_y;
-
+fn resolve_collision(
+    transform_1: &mut Transform,
+    collision_properties_1: &ColliderProperties,
+    transform_2: &mut Transform,
+    collision_properties_2: &ColliderProperties,
+    // this will be a vector in which direction the object should move
+    // it will also store the depth of the collision
+    force_vector: [f64; 2],
+) {
     // for now we are going to push the objects apart by half the depth of the collision
     // this is not a perfect solution, but it is good enough for now, in the future I think it should be proportional to the mass of the objects
+    if collision_properties_1.is_static {
+        transform_2.x -= force_vector[0];
+        transform_2.y -= force_vector[1];
+    } else if collision_properties_2.is_static {
+        transform_1.x += force_vector[0];
+        transform_1.y += force_vector[1];
+    } else {
+        transform_1.x += force_vector[0] / 2.0;
+        transform_1.y += force_vector[1] / 2.0;
 
-    let depth = depth as f64;
-    transform_1.x += dx * depth / 2.0;
-    transform_1.y += dy * depth / 2.0;
-
-    transform_2.x -= dx * depth / 2.0;
-    transform_2.y -= dy * depth / 2.0;
+        transform_2.x -= force_vector[0] / 2.0;
+        transform_2.y -= force_vector[1] / 2.0;
+    }
 }
