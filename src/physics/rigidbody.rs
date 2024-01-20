@@ -94,4 +94,8 @@ impl RigidBody {
     pub fn get_acceleration(&self) -> Vec2 {
         self.acceleration
     }
+
+    pub fn get_mass(&self) -> f32 {
+        self.mass
+    }
 }

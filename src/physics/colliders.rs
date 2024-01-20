@@ -1,5 +1,7 @@
 use crate::*;
 
+use super::rigidbody::{self, RigidBody};
+
 #[derive(Clone, Copy)]
 pub struct Collider {
     pub shape: ColliderShape,
@@ -86,7 +88,7 @@ fn circle_circle_collision(
         (circle_1_transform.y - circle_2_transform.y) / distance_between_centers,
     ];
 
-    let magnitude = (distance_between_centers - combined_radii);
+    let magnitude = distance_between_centers - combined_radii;
 
     let force_vector = [
         -normalized_vector[0] * magnitude,
@@ -240,25 +242,55 @@ impl System for CollisionSystem {
             .collect::<Vec<Entity>>();
 
         for entity_1 in entities.iter() {
-            let (collider_1, transform_1) =
-                entities_and_components.get_components_mut::<(Collider, Transform)>(*entity_1);
+            let (collider_1, transform_1, rigidbody_1) = entities_and_components
+                .try_get_components_mut::<(Collider, Transform, RigidBody)>(*entity_1);
 
-            // our use of unsafe here is sound because when we get more components we check
-            // the entity id to make sure it is the same as the entity id we are currently iterating over
-            let collider_1_pointer: *mut Collider = collider_1;
-            let collider_1 = unsafe { &mut *collider_1_pointer };
-            let transform_1_pointer: *mut Transform = transform_1;
-            let transform_1 = unsafe { &mut *transform_1_pointer };
+            // if the first entity doesn't have a rigidbody, it is static and we don't need to check for collisions as they will be handled by the other entity
 
-            for entity_2 in entities.iter() {
-                if entity_1 == entity_2 {
-                    continue;
+            match (collider_1, transform_1, rigidbody_1) {
+                (Some(collider_1), Some(transform_1), Some(rigidbody_1)) => {
+                    // our use of unsafe here is sound because when we get more components we check
+                    // the entity id to make sure it is the same as the entity id we are currently iterating over
+                    let collider_1_pointer: *mut Collider = collider_1;
+                    let collider_1 = unsafe { &mut *collider_1_pointer };
+                    let transform_1_pointer: *mut Transform = transform_1;
+                    let transform_1 = unsafe { &mut *transform_1_pointer };
+                    let rigidbody_1_pointer: *mut RigidBody = rigidbody_1;
+                    let rigidbody_1 = unsafe { &mut *rigidbody_1_pointer };
+
+                    for entity_2 in entities.iter() {
+                        if entity_1 == entity_2 {
+                            continue;
+                        }
+
+                        match (entities_and_components
+                            .try_get_components_mut::<(Collider, Transform, RigidBody)>(*entity_2))
+                        {
+                            (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
+                                check_and_resolve_collision(
+                                    collider_1,
+                                    transform_1,
+                                    rigidbody_1,
+                                    collider_2,
+                                    transform_2,
+                                    rigidbody_2,
+                                );
+                            }
+                            (Some(collider_2), Some(transform_2), None) => {
+                                check_and_resolve_collision(
+                                    collider_1,
+                                    transform_1,
+                                    rigidbody_1,
+                                    collider_2,
+                                    transform_2,
+                                    &mut rigidbody::RigidBody::default(),
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
                 }
-
-                let (collider_2, transform_2) =
-                    entities_and_components.get_components_mut::<(Collider, Transform)>(*entity_2);
-
-                check_and_resolve_collision(collider_1, transform_1, collider_2, transform_2);
+                _ => {}
             }
         }
     }
@@ -268,90 +300,63 @@ impl System for CollisionSystem {
 fn check_and_resolve_collision(
     collider_1: &Collider,
     transform_1: &mut Transform,
+    rb_1: &mut RigidBody,
     collider_2: &Collider,
     transform_2: &mut Transform,
+    rb_2: &mut RigidBody,
 ) -> bool {
     if collider_1.properties.is_static && collider_2.properties.is_static {
         return false;
     }
 
+    let force_vec: [f64; 2];
+    let is_colliding: bool;
+
     match (&collider_1.shape, &collider_2.shape) {
         (ColliderShape::Circle(circle_collider_1), ColliderShape::Circle(circle_collider_2)) => {
-            let (is_colliding, force_vec) = circle_circle_collision(
+            (is_colliding, force_vec) = circle_circle_collision(
                 circle_collider_1,
                 transform_1,
                 circle_collider_2,
                 transform_2,
             );
-
-            if is_colliding {
-                resolve_collision(
-                    transform_1,
-                    &collider_1.properties,
-                    transform_2,
-                    &collider_2.properties,
-                    force_vec,
-                );
-                return true;
-            }
-            return false;
         }
         (ColliderShape::Circle(circle_collider), ColliderShape::Box(box_collider)) => {
-            let (is_colliding, force_vec) =
+            (is_colliding, force_vec) =
                 circle_box_collision(circle_collider, transform_1, box_collider, transform_2);
-
-            if is_colliding {
-                resolve_collision(
-                    transform_1,
-                    &collider_1.properties,
-                    transform_2,
-                    &collider_2.properties,
-                    force_vec,
-                );
-                return true;
-            }
-            return false;
         }
         (ColliderShape::Box(box_collider), ColliderShape::Circle(circle_collider)) => {
-            let (is_colliding, force_vec) =
+            (is_colliding, force_vec) =
                 circle_box_collision(circle_collider, transform_1, box_collider, transform_2);
-
-            if is_colliding {
-                resolve_collision(
-                    transform_1,
-                    &collider_1.properties,
-                    transform_2,
-                    &collider_2.properties,
-                    force_vec,
-                );
-                return true;
-            }
-            return false;
         }
         (ColliderShape::Box(box_collider_1), ColliderShape::Box(box_collider_2)) => {
-            let (is_colliding, force_vec) =
+            (is_colliding, force_vec) =
                 box_box_collision(box_collider_1, transform_1, box_collider_2, transform_2);
-
-            if is_colliding {
-                resolve_collision(
-                    transform_1,
-                    &collider_1.properties,
-                    transform_2,
-                    &collider_2.properties,
-                    force_vec,
-                );
-                return true;
-            }
-            return false;
         }
     }
+
+    if is_colliding {
+        resolve_collision(
+            transform_1,
+            &collider_1.properties,
+            rb_1,
+            transform_2,
+            &collider_2.properties,
+            rb_2,
+            force_vec,
+        );
+        return true;
+    }
+    return false;
 }
 
 fn resolve_collision(
     transform_1: &mut Transform,
     collision_properties_1: &ColliderProperties,
+    rb_1: &mut RigidBody,
     transform_2: &mut Transform,
     collision_properties_2: &ColliderProperties,
+    rb_2: &mut RigidBody,
     // this will be a vector in which direction the object should move
     // it will also store the depth of the collision
     force_vector: [f64; 2],
@@ -365,10 +370,16 @@ fn resolve_collision(
         transform_1.x += force_vector[0];
         transform_1.y += force_vector[1];
     } else {
-        transform_1.x += force_vector[0] / 2.0;
-        transform_1.y += force_vector[1] / 2.0;
+        let mass_1 = rb_1.get_mass() as f64;
+        let mass_2 = rb_2.get_mass() as f64;
+        let total_mass = mass_1 + mass_2;
+        let mass_percentage_1 = mass_1 / total_mass;
+        let mass_percentage_2 = mass_2 / total_mass;
 
-        transform_2.x -= force_vector[0] / 2.0;
-        transform_2.y -= force_vector[1] / 2.0;
+        transform_1.x += force_vector[0] * mass_percentage_2;
+        transform_1.y += force_vector[1] * mass_percentage_2;
+
+        transform_2.x -= force_vector[0] * mass_percentage_1;
+        transform_2.y -= force_vector[1] * mass_percentage_1;
     }
 }
