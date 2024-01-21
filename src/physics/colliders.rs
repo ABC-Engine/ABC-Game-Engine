@@ -1,3 +1,5 @@
+use glam::Vec2;
+
 use crate::*;
 
 use super::rigidbody::{self, RigidBody};
@@ -366,9 +368,53 @@ fn resolve_collision(
     if collision_properties_1.is_static {
         transform_2.x -= force_vector[0];
         transform_2.y -= force_vector[1];
+
+        // time for some elastic collisions
+        // I think I'm using the correct formula here but, correct me if I'm wrong
+        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+        let velocity_2 = rb_2.get_velocity();
+        let total_velocity_2 = (velocity_2[0].powi(2) + velocity_2[1].powi(2)).sqrt();
+
+        // final_total_velocity_1 = ((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64;
+        // as mass_1 -> infinity, ((mass_1 - mass_2) / total_mass) approaches 1
+        let final_total_velocity_2 = 1.0 * total_velocity_2 as f64;
+
+        let normalized_velocity_2 = [
+            velocity_2[0] / total_velocity_2,
+            velocity_2[1] / total_velocity_2,
+        ];
+
+        let final_velocity_2 = Vec2::new(
+            normalized_velocity_2[0] * final_total_velocity_2 as f32,
+            normalized_velocity_2[1] * final_total_velocity_2 as f32,
+        );
+
+        rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
     } else if collision_properties_2.is_static {
         transform_1.x += force_vector[0];
         transform_1.y += force_vector[1];
+
+        // time for some elastic collisions
+        // I think I'm using the correct formula here but, correct me if I'm wrong
+        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+        let velocity_1 = rb_1.get_velocity();
+        let total_velocity_1 = (velocity_1[0].powi(2) + velocity_1[1].powi(2)).sqrt();
+
+        // final_total_velocity_1 = ((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64;
+        // as mass_2 -> infinity, ((mass_1 - mass_2) / total_mass) approaches -1
+        let final_total_velocity_1 = -1.0 * total_velocity_1 as f64;
+
+        let normalized_velocity_1 = [
+            velocity_1[0] / total_velocity_1,
+            velocity_1[1] / total_velocity_1,
+        ];
+
+        let final_velocity_1 = Vec2::new(
+            normalized_velocity_1[0] * final_total_velocity_1 as f32,
+            normalized_velocity_1[1] * final_total_velocity_1 as f32,
+        );
+
+        rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
     } else {
         let mass_1 = rb_1.get_mass() as f64;
         let mass_2 = rb_2.get_mass() as f64;
@@ -381,5 +427,44 @@ fn resolve_collision(
 
         transform_2.x -= force_vector[0] * mass_percentage_1;
         transform_2.y -= force_vector[1] * mass_percentage_1;
+
+        // time for some elastic collisions
+        // I think I'm using the correct formula here but, correct me if I'm wrong
+        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+        let velocity_1 = rb_1.get_velocity();
+        let total_velocity_1 = (velocity_1[0].powi(2) + velocity_1[1].powi(2)).sqrt();
+        let velocity_2 = rb_2.get_velocity();
+        let total_velocity_2 = (velocity_2[0].powi(2) + velocity_2[1].powi(2)).sqrt();
+        let total_mass = mass_1 + mass_2;
+
+        let final_total_velocity_1 = (((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64)
+            + (((2.0 * mass_2) / total_mass) * total_velocity_2 as f64);
+
+        let final_total_velocity_2 = (((mass_2 - mass_1) / total_mass) * total_velocity_2 as f64)
+            + (((2.0 * mass_2) / total_mass) * total_velocity_1 as f64);
+
+        let normalized_velocity_1 = [
+            velocity_1[0] / total_velocity_1,
+            velocity_1[1] / total_velocity_1,
+        ];
+        let normalized_velocity_2 = [
+            velocity_2[0] / total_velocity_2,
+            velocity_2[1] / total_velocity_2,
+        ];
+
+        let final_velocity_1 = Vec2::new(
+            normalized_velocity_1[0] * final_total_velocity_1 as f32,
+            normalized_velocity_1[1] * final_total_velocity_1 as f32,
+        );
+
+        let final_velocity_2 = Vec2::new(
+            normalized_velocity_2[0] * final_total_velocity_2 as f32,
+            normalized_velocity_2[1] * final_total_velocity_2 as f32,
+        );
+
+        // mix the current velocity with the final velocity based on the elasticity of the object
+        // I have no idea if this is the correct way to do this, but it seems to work
+        rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
+        rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
     }
 }

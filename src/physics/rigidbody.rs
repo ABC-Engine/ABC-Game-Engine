@@ -39,6 +39,7 @@ pub struct RigidBody {
     gravity: f32,
     acceleration: Vec2,
     terminal_velocity: Option<f32>,
+    elasticity: f32,
 }
 
 impl RigidBody {
@@ -49,6 +50,7 @@ impl RigidBody {
             gravity,
             acceleration: Vec2::ZERO,
             terminal_velocity: None,
+            elasticity: 0.8,
         }
     }
 
@@ -59,6 +61,7 @@ impl RigidBody {
             gravity: 9.807,
             acceleration: Vec2::ZERO,
             terminal_velocity: None,
+            elasticity: 0.8,
         }
     }
 
@@ -97,5 +100,9 @@ impl RigidBody {
 
     pub fn get_mass(&self) -> f32 {
         self.mass
+    }
+
+    pub fn get_elasticity(&self) -> f32 {
+        self.elasticity
     }
 }

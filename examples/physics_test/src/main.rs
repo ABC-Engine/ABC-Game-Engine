@@ -128,7 +128,7 @@ fn main() {
     loop {
         scene.game_engine.run();
         // add random balls
-        if last_time_ball_was_spawned.elapsed() > Duration::from_secs_f32(0.1) {
+        if last_time_ball_was_spawned.elapsed() > Duration::from_secs_f32(0.5) {
             last_time_ball_was_spawned = Instant::now();
             // spawn at a random x position
             spawn_rb_ball(
