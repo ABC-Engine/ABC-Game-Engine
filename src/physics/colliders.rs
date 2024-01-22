@@ -429,16 +429,19 @@ fn handle_non_static_collsion(
 
     // time for some elastic collisions
     // I think I'm using the correct formula here but, correct me if I'm wrong
-    // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
     let velocity_1 = rb_1.get_velocity();
     let velocity_2 = rb_2.get_velocity();
-    let total_mass = mass_1 + mass_2;
 
-    let mut final_velocity_1 = (velocity_1 * ((mass_1 - mass_2) / total_mass) as f32)
-        + (((2.0 * mass_2) / total_mass) as f32 * velocity_2);
+    let momentum_1 = velocity_1 * mass_1 as f32;
+    let momentum_2 = velocity_2 * mass_2 as f32;
 
-    let mut final_velocity_2 = (velocity_2 * ((mass_2 - mass_1) / total_mass) as f32)
-        + (((2.0 * mass_1) / total_mass) as f32 * velocity_1);
+    let mut final_velocity_1 =
+        (mass_2 as f32 * (velocity_2 - velocity_1) + momentum_1 + momentum_2)
+            / (mass_1 + mass_2) as f32;
+
+    let mut final_velocity_2 =
+        (mass_1 as f32 * (velocity_1 - velocity_2) + momentum_1 + momentum_2)
+            / (mass_1 + mass_2) as f32;
 
     // now lets adapt the direction of the velocity
     // we are going to blend the direction of the velocity and the direction of the force vector based on the momentum of the object
@@ -471,8 +474,17 @@ fn handle_non_static_collsion(
     final_velocity_2 = final_velocity_2.normalize();
     final_velocity_2 *= velocity_2_magnitude;
 
+    let average_elasticity = (rb_1.get_elasticity() + rb_2.get_elasticity()) / 2.0;
+
+    // apply the elasticity to the difference in velocity
+    // I think this is the correct way to do this, I did it this way because otherwise when two balls collide
+    // they would both loose almost all of their velocity no matter the direction of the collision
+    // one example is if two balls are both falling and are both on the same x position, they will both loose almost all of their velocity, even the bottom ball which should gain velocity
+    final_velocity_1 = velocity_1 - average_elasticity * (velocity_1 - final_velocity_1);
+    final_velocity_2 = velocity_2 - average_elasticity * (velocity_2 - final_velocity_2);
+
     // mix the current velocity with the final velocity based on the elasticity of the object
     // I have no idea if this is the correct way to do this, but it seems to work
-    rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
-    rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
+    rb_1.set_velocity(final_velocity_1);
+    rb_2.set_velocity(final_velocity_2);
 }

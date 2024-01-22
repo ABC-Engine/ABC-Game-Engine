@@ -102,10 +102,16 @@ impl RigidBody {
         self.mass
     }
 
+    /// elasticity is a value between 0 and 1
+    /// it is the percentage of the kinetic energy that is retained after a collision
+    /// it's referred to in physics as the coefficient of restitution
     pub fn get_elasticity(&self) -> f32 {
         self.elasticity
     }
 
+    /// elasticity is a value between 0 and 1
+    /// it is the percentage of the kinetic energy that is retained after a collision
+    /// it's referred to in physics as the coefficient of restitution
     pub fn set_elasticity(&mut self, elasticity: f32) {
         self.elasticity = elasticity;
     }
