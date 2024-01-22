@@ -63,7 +63,7 @@ fn main() {
             Sprite::Circle(ball),
             Transform {
                 x: -19.0,
-                y: -30.0,
+                y: -32.0,
                 z: 0.0,
                 rotation: 0.0,
                 scale: 1.0,

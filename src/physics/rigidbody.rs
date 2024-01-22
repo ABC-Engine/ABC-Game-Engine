@@ -50,7 +50,7 @@ impl RigidBody {
             gravity,
             acceleration: Vec2::ZERO,
             terminal_velocity: None,
-            elasticity: 0.8,
+            elasticity: 0.5,
         }
     }
 
@@ -61,7 +61,7 @@ impl RigidBody {
             gravity: 9.807,
             acceleration: Vec2::ZERO,
             terminal_velocity: None,
-            elasticity: 0.8,
+            elasticity: 0.5,
         }
     }
 
@@ -104,5 +104,9 @@ impl RigidBody {
 
     pub fn get_elasticity(&self) -> f32 {
         self.elasticity
+    }
+
+    pub fn set_elasticity(&mut self, elasticity: f32) {
+        self.elasticity = elasticity;
     }
 }

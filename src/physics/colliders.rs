@@ -363,108 +363,116 @@ fn resolve_collision(
     // it will also store the depth of the collision
     force_vector: [f64; 2],
 ) {
+    // should never happen, so not sure if it is worth checking for
+    if force_vector[0] == 0.0 && force_vector[1] == 0.0 {
+        return;
+    }
+
     // for now we are going to push the objects apart by half the depth of the collision
     // this is not a perfect solution, but it is good enough for now, in the future I think it should be proportional to the mass of the objects
     if collision_properties_1.is_static {
-        transform_2.x -= force_vector[0];
-        transform_2.y -= force_vector[1];
-
-        // time for some elastic collisions
-        // I think I'm using the correct formula here but, correct me if I'm wrong
-        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
-        let velocity_2 = rb_2.get_velocity();
-        let total_velocity_2 = (velocity_2[0].powi(2) + velocity_2[1].powi(2)).sqrt();
-
-        // final_total_velocity_1 = ((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64;
-        // as mass_1 -> infinity, ((mass_1 - mass_2) / total_mass) approaches 1
-        let final_total_velocity_2 = 1.0 * total_velocity_2 as f64;
-
-        let normalized_velocity_2 = [
-            velocity_2[0] / total_velocity_2,
-            velocity_2[1] / total_velocity_2,
-        ];
-
-        let final_velocity_2 = Vec2::new(
-            normalized_velocity_2[0] * final_total_velocity_2 as f32,
-            normalized_velocity_2[1] * final_total_velocity_2 as f32,
-        );
-
-        rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
+        handle_static_collision(transform_2, rb_2, &[-force_vector[0], -force_vector[1]])
     } else if collision_properties_2.is_static {
-        transform_1.x += force_vector[0];
-        transform_1.y += force_vector[1];
-
-        // time for some elastic collisions
-        // I think I'm using the correct formula here but, correct me if I'm wrong
-        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
-        let velocity_1 = rb_1.get_velocity();
-        let total_velocity_1 = (velocity_1[0].powi(2) + velocity_1[1].powi(2)).sqrt();
-
-        // final_total_velocity_1 = ((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64;
-        // as mass_2 -> infinity, ((mass_1 - mass_2) / total_mass) approaches -1
-        let final_total_velocity_1 = -1.0 * total_velocity_1 as f64;
-
-        let normalized_velocity_1 = [
-            velocity_1[0] / total_velocity_1,
-            velocity_1[1] / total_velocity_1,
-        ];
-
-        let final_velocity_1 = Vec2::new(
-            normalized_velocity_1[0] * final_total_velocity_1 as f32,
-            normalized_velocity_1[1] * final_total_velocity_1 as f32,
-        );
-
-        rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
+        handle_static_collision(transform_1, rb_1, &force_vector)
     } else {
-        let mass_1 = rb_1.get_mass() as f64;
-        let mass_2 = rb_2.get_mass() as f64;
-        let total_mass = mass_1 + mass_2;
-        let mass_percentage_1 = mass_1 / total_mass;
-        let mass_percentage_2 = mass_2 / total_mass;
-
-        transform_1.x += force_vector[0] * mass_percentage_2;
-        transform_1.y += force_vector[1] * mass_percentage_2;
-
-        transform_2.x -= force_vector[0] * mass_percentage_1;
-        transform_2.y -= force_vector[1] * mass_percentage_1;
-
-        // time for some elastic collisions
-        // I think I'm using the correct formula here but, correct me if I'm wrong
-        // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
-        let velocity_1 = rb_1.get_velocity();
-        let total_velocity_1 = (velocity_1[0].powi(2) + velocity_1[1].powi(2)).sqrt();
-        let velocity_2 = rb_2.get_velocity();
-        let total_velocity_2 = (velocity_2[0].powi(2) + velocity_2[1].powi(2)).sqrt();
-        let total_mass = mass_1 + mass_2;
-
-        let final_total_velocity_1 = (((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64)
-            + (((2.0 * mass_2) / total_mass) * total_velocity_2 as f64);
-
-        let final_total_velocity_2 = (((mass_2 - mass_1) / total_mass) * total_velocity_2 as f64)
-            + (((2.0 * mass_2) / total_mass) * total_velocity_1 as f64);
-
-        let normalized_velocity_1 = [
-            velocity_1[0] / total_velocity_1,
-            velocity_1[1] / total_velocity_1,
-        ];
-        let normalized_velocity_2 = [
-            velocity_2[0] / total_velocity_2,
-            velocity_2[1] / total_velocity_2,
-        ];
-
-        let final_velocity_1 = Vec2::new(
-            normalized_velocity_1[0] * final_total_velocity_1 as f32,
-            normalized_velocity_1[1] * final_total_velocity_1 as f32,
-        );
-
-        let final_velocity_2 = Vec2::new(
-            normalized_velocity_2[0] * final_total_velocity_2 as f32,
-            normalized_velocity_2[1] * final_total_velocity_2 as f32,
-        );
-
-        // mix the current velocity with the final velocity based on the elasticity of the object
-        // I have no idea if this is the correct way to do this, but it seems to work
-        rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
-        rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
+        handle_non_static_collsion(transform_1, rb_1, transform_2, rb_2, &force_vector);
     }
+}
+
+fn handle_static_collision(
+    transform_1: &mut Transform,
+    rb_1: &mut RigidBody,
+    force_vector: &[f64; 2],
+) {
+    transform_1.x += force_vector[0];
+    transform_1.y += force_vector[1];
+
+    // time for some elastic collisions
+    // I think I'm using the correct formula here but, correct me if I'm wrong
+    // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+    let velocity_1 = rb_1.get_velocity();
+
+    // final_velocity_1 = ((mass_1 - mass_2) / total_mass) * total_velocity_1 as f64;
+    // as mass_2 -> infinity, ((mass_1 - mass_2) / total_mass) approaches -1
+    let mut final_velocity_1 = -velocity_1;
+
+    // now lets adapt the direction of the velocity
+    // we are going to blend the direction of the velocity and the direction of the force vector based on the momentum of the object
+    // this is to prevent the object from not changing direction when it should, like when two balls hit each other at an angle and
+    // don't gain any horizontal velocity
+
+    let velocity_1_magnitude = final_velocity_1.length();
+    final_velocity_1 = Vec2::new(force_vector[0] as f32, force_vector[1] as f32).normalize();
+    final_velocity_1 *= velocity_1_magnitude;
+
+    rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
+}
+
+fn handle_non_static_collsion(
+    transform_1: &mut Transform,
+    rb_1: &mut RigidBody,
+    transform_2: &mut Transform,
+    rb_2: &mut RigidBody,
+    force_vector: &[f64; 2],
+) {
+    let mass_1 = rb_1.get_mass() as f64;
+    let mass_2 = rb_2.get_mass() as f64;
+    let total_mass = mass_1 + mass_2;
+    let mass_percentage_1 = mass_1 / total_mass;
+    let mass_percentage_2 = mass_2 / total_mass;
+
+    transform_1.x += force_vector[0] * mass_percentage_2;
+    transform_1.y += force_vector[1] * mass_percentage_2;
+
+    transform_2.x -= force_vector[0] * mass_percentage_1;
+    transform_2.y -= force_vector[1] * mass_percentage_1;
+
+    // time for some elastic collisions
+    // I think I'm using the correct formula here but, correct me if I'm wrong
+    // source for the formula: https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+    let velocity_1 = rb_1.get_velocity();
+    let velocity_2 = rb_2.get_velocity();
+    let total_mass = mass_1 + mass_2;
+
+    let mut final_velocity_1 = (velocity_1 * ((mass_1 - mass_2) / total_mass) as f32)
+        + (((2.0 * mass_2) / total_mass) as f32 * velocity_2);
+
+    let mut final_velocity_2 = (velocity_2 * ((mass_2 - mass_1) / total_mass) as f32)
+        + (((2.0 * mass_1) / total_mass) as f32 * velocity_1);
+
+    // now lets adapt the direction of the velocity
+    // we are going to blend the direction of the velocity and the direction of the force vector based on the momentum of the object
+    // this is to prevent the object from not changing direction when it should, like when two balls hit each other at an angle and
+    // don't gain any horizontal velocity
+
+    let velocity_1_magnitude = final_velocity_1.length();
+    let velocity_2_magnitude = final_velocity_1.length();
+    let momentum_1 = velocity_1_magnitude * mass_1 as f32;
+    let momentum_2 = velocity_2_magnitude * mass_2 as f32;
+    let momentum_percentage_1 = momentum_1 / (momentum_1 + momentum_2);
+    let momentum_percentage_2 = momentum_2 / (momentum_1 + momentum_2);
+
+    // lerp the velocity and the force vector with t = momentum_percentage
+    // first we need to normalize both vectors
+    let mut force_vector = Vec2::new(force_vector[0] as f32, force_vector[1] as f32);
+    force_vector = force_vector.normalize();
+
+    final_velocity_1 = final_velocity_1.normalize();
+    final_velocity_2 = final_velocity_2.normalize();
+
+    // the lower the momentum percentage, the more the velocity will be changed
+    final_velocity_1 =
+        (1.0 - momentum_percentage_1) * force_vector + momentum_percentage_1 * final_velocity_1;
+    final_velocity_1 = final_velocity_1.normalize();
+    final_velocity_1 *= velocity_1_magnitude;
+
+    final_velocity_2 =
+        (1.0 - momentum_percentage_2) * -force_vector + momentum_percentage_2 * final_velocity_2;
+    final_velocity_2 = final_velocity_2.normalize();
+    final_velocity_2 *= velocity_2_magnitude;
+
+    // mix the current velocity with the final velocity based on the elasticity of the object
+    // I have no idea if this is the correct way to do this, but it seems to work
+    rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
+    rb_2.set_velocity(final_velocity_2 * rb_2.get_elasticity());
 }
