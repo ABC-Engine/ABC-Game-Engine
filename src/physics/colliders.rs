@@ -1,8 +1,7 @@
-use glam::Vec2;
-
-use crate::*;
-
 use super::rigidbody::{self, RigidBody};
+use crate::*;
+use glam::Vec2;
+mod quad_tree;
 
 #[derive(Clone, Copy)]
 pub struct Collider {
