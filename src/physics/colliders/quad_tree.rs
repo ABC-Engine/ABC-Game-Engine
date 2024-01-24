@@ -1,3 +1,5 @@
+use std::panic;
+
 /// this is a work in progress, it does not yet work
 use crate::physics::colliders::Collider;
 use crate::Transform;
@@ -9,8 +11,9 @@ struct CollisionObject {
 }
 
 struct QuadTreeNode {
-    // upper right corner of the node 0, 0 is the lower left corner
-    bounds: [f64; 2],
+    // lower left corner
+    pos: [f64; 2],
+    width: f64,
     // this is a vec even though at the end it will only have 1 element
     objects: Vec<CollisionObject>,
     // lower left, upper left, lower right, upper right as indexed in the enum
@@ -18,6 +21,15 @@ struct QuadTreeNode {
 }
 
 impl QuadTreeNode {
+    fn new(pos: [f64; 2], width: f64) -> Self {
+        Self {
+            pos,
+            width,
+            objects: vec![],
+            children_nodes: vec![],
+        }
+    }
+
     fn insert(&mut self, object: CollisionObject) {
         match (self.children_nodes.is_empty(), self.objects.is_empty()) {
             (true, true) => {
@@ -25,23 +37,24 @@ impl QuadTreeNode {
                 return;
             }
             (true, false) => {
-                // should never happen, but just in case
-                // we need to split the node
+                // this is currently a leaf node, we need to split the node
+                let mut objects = self.objects.drain(..).collect::<Vec<_>>();
+                objects.push(object);
 
-                let objects = self.objects.drain(..).collect::<Vec<_>>();
                 self.add_children_nodes();
-
                 self.bulk_insert(objects);
             }
             (false, true) => {
                 // find the quadrant and insert into the child node
-                let quadrant = find_quadrant(self.bounds, &object);
+                let quadrant = find_quadrant(self.pos, self.width, &object);
+
                 let child = &mut self.children_nodes[quadrant as usize];
                 child.insert(object);
             }
             (false, false) => {
-                // also should never happen, but just in case
-                let objects = self.objects.drain(..).collect::<Vec<_>>();
+                // should never happen, but just in case
+                let mut objects = self.objects.drain(..).collect::<Vec<_>>();
+                objects.push(object);
 
                 self.add_children_nodes();
                 self.bulk_insert(objects);
@@ -69,10 +82,21 @@ impl QuadTreeNode {
 
         // should mean that we are at the leaf node
         if self.objects.len() == 1 {
+            assert!(self.children_nodes.is_empty());
             return Some(&self.objects[0]);
         }
 
-        let quadrant = find_quadrant(self.bounds, object);
+        let quadrant = find_quadrant(self.pos, self.width, object);
+        println!(
+            "chose quadrant {:?} for object at [{:.2}, {:.2}] with square at range [{} - {}, {} - {}]",
+            quadrant,
+            object.transform.x,
+            object.transform.y,
+            self.pos[0],
+            self.pos[0] + self.width,
+            self.pos[1],
+            self.pos[1] + self.width
+        );
 
         let child = &self.children_nodes[quadrant as usize];
 
@@ -85,36 +109,29 @@ impl QuadTreeNode {
     }
 
     fn add_children_nodes(&mut self) {
-        let center = [self.bounds[0] / 2.0, self.bounds[1] / 2.0];
+        let new_width = self.width / 2.0;
 
-        let lower_left = QuadTreeNode {
-            bounds: [center[0], center[1]],
-            objects: Vec::new(),
-            children_nodes: Vec::new(),
-        };
+        let offsets = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]];
 
-        let upper_left = QuadTreeNode {
-            bounds: [center[0], center[1]],
-            objects: Vec::new(),
-            children_nodes: Vec::new(),
-        };
+        for offset in offsets {
+            let new_pos = [
+                self.pos[0] + offset[0] * new_width,
+                self.pos[1] + offset[1] * new_width,
+            ];
+            self.children_nodes
+                .push(QuadTreeNode::new(new_pos, new_width));
+        }
+    }
 
-        let lower_right = QuadTreeNode {
-            bounds: [center[0], center[1]],
-            objects: Vec::new(),
-            children_nodes: Vec::new(),
-        };
+    fn could_fit_point(&self, object: &CollisionObject) -> bool {
+        let object_center = object.transform;
 
-        let upper_right = QuadTreeNode {
-            bounds: [center[0], center[1]],
-            objects: Vec::new(),
-            children_nodes: Vec::new(),
-        };
+        let right = object_center.x >= self.pos[0] + self.width;
+        let left = object_center.x <= self.pos[0];
+        let top = object_center.y >= self.pos[1] + self.width;
+        let bottom = object_center.y <= self.pos[1];
 
-        self.children_nodes.push(lower_left);
-        self.children_nodes.push(upper_left);
-        self.children_nodes.push(lower_right);
-        self.children_nodes.push(upper_right);
+        !(left || right || top || bottom)
     }
 }
 
@@ -123,10 +140,11 @@ struct QuadTree {
 }
 
 impl QuadTree {
-    fn new(bounds: [f64; 2]) -> Self {
+    fn new(pos: [f64; 2], width: f64) -> Self {
         Self {
             root: QuadTreeNode {
-                bounds,
+                pos,
+                width,
                 objects: Vec::new(),
                 children_nodes: Vec::new(),
             },
@@ -134,10 +152,19 @@ impl QuadTree {
     }
 
     fn insert(&mut self, object: CollisionObject) {
+        if !self.root.could_fit_point(&object) {
+            panic!("object does not fit in the quad tree: user error");
+        }
+
         self.root.insert(object);
     }
 
     fn bulk_insert(&mut self, objects: Vec<CollisionObject>) {
+        for object in &objects {
+            if !self.root.could_fit_point(object) {
+                panic!("object does not fit in the quad tree: user error");
+            }
+        }
         self.root.bulk_insert(objects);
     }
 
@@ -146,6 +173,7 @@ impl QuadTree {
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum Quadrant {
     LowerLeft,
     UpperLeft,
@@ -153,12 +181,12 @@ enum Quadrant {
     UpperRight,
 }
 
-fn find_quadrant(bounds: [f64; 2], object: &CollisionObject) -> Quadrant {
-    let center = [bounds[0] / 2.0, bounds[1] / 2.0];
+fn find_quadrant(pos: [f64; 2], width: f64, object: &CollisionObject) -> Quadrant {
+    let center = [pos[0] + width / 2.0, pos[1] + width / 2.0];
     let object_center = object.transform;
 
-    let left = object_center.x < center[0];
-    let top = object_center.y < center[1];
+    let left = object_center.x <= center[0];
+    let top = object_center.y >= center[1];
 
     if left {
         if top {
@@ -176,18 +204,22 @@ fn find_quadrant(bounds: [f64; 2], object: &CollisionObject) -> Quadrant {
 }
 
 mod tests {
+    use rand::random;
+
     use super::*;
     use crate::physics::colliders::{CircleCollider, ColliderProperties};
+    use rand::Rng;
 
     #[test]
     fn test_insert() {
-        let mut quad_tree = QuadTree::new([100.0, 100.0]);
+        let mut quad_tree = QuadTree::new([0.0, 0.0], 100.0);
 
         let mut objects = vec![];
 
-        for _ in 0..10000 {
-            let random_x = rand::random::<f64>() * 100.0;
-            let random_y = rand::random::<f64>() * 100.0;
+        for _ in 0..100 {
+            let mut rng = rand::thread_rng();
+            let random_x = rng.gen::<f64>() * 100.0;
+            let random_y = rng.gen::<f64>() * 100.0;
 
             let object = CollisionObject {
                 collider: Collider {
@@ -204,44 +236,29 @@ mod tests {
             objects.push(object);
         }
 
-        quad_tree.root.bulk_insert(objects);
+        quad_tree.root.bulk_insert(objects.clone());
 
-        let mut total_distance = 0.0;
-        let mut total_nones = 0;
         // test the find closest object to point
-        for _ in 0..100000 {
-            let random_x = rand::random::<f64>() * 100.0;
-            let random_y = rand::random::<f64>() * 100.0;
-
-            let object = CollisionObject {
-                collider: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
-                transform: Transform {
-                    x: random_x,
-                    y: random_y,
-                    ..Transform::default()
-                },
-            };
-
-            let closest_object = quad_tree.find_closest_object_to_point(&object);
-
-            // none should be none in the final result this is just a preliminary test
-            if closest_object.is_some() {
-                let distance = (closest_object.unwrap().transform.x - object.transform.x).abs()
-                    + (closest_object.unwrap().transform.y - object.transform.y).abs();
-                total_distance += distance;
+        for object in objects {
+            if let Some(closest_object) = quad_tree.find_closest_object_to_point(&object) {
+                let closest_transform = closest_object.transform;
+                if closest_transform.x != object.transform.x
+                    || closest_transform.y != object.transform.y
+                {
+                    panic!(
+                        "expected object at [{:.2}, {:.2}] found object at [{:.2}, {:.2}]",
+                        object.transform.x,
+                        object.transform.y,
+                        closest_transform.x,
+                        closest_transform.y
+                    );
+                }
             } else {
-                total_nones += 1;
+                panic!(
+                    "could not find object at [{:.2}, {:.2}]",
+                    object.transform.x, object.transform.y
+                );
             }
         }
-
-        // if this is a really big number, then we are doing something wrong
-        println!("Average distance: {}", total_distance / 100000.0);
-        println!(
-            "None percentage: {}%",
-            (total_nones as f64 / 100000.0) * 100.0
-        );
     }
 }
