@@ -34,12 +34,48 @@ enum QuadTreeBranch<T> {
     Leaf(Leaf<T>),
 }
 
+trait QuadTreeRange {
+    fn contains_point(&self, point: &Transform) -> bool;
+}
+
+struct QuadTreeRangeCircle {
+    center: Transform,
+    radius: f64,
+}
+
+impl QuadTreeRange for QuadTreeRangeCircle {
+    fn contains_point(&self, point: &Transform) -> bool {
+        let distance = self.center.squared_distance_to(point);
+        distance <= self.radius.powi(2)
+    }
+}
+
+struct QuadTreeRangeRectangle {
+    center: Transform,
+    width: f64,
+    height: f64,
+}
+
+impl QuadTreeRange for QuadTreeRangeRectangle {
+    fn contains_point(&self, point: &Transform) -> bool {
+        let x = point.x - self.center.x;
+        let y = point.y - self.center.y;
+
+        let half_width = self.width / 2.0;
+        let half_height = self.height / 2.0;
+
+        x >= -half_width && x <= half_width && y >= -half_height && y <= half_height
+    }
+}
+
 struct QuadTreeNode<T> {
     // lower left corner
     pos: [f64; 2],
     width: f64,
     child: Option<QuadTreeBranch<T>>,
     max_leaf_objects: usize,
+    // this being None means that there is no max depth, not that the depth is 0
+    depth_left: Option<u32>,
 }
 
 impl<T> QuadTreeNode<T> {
@@ -51,39 +87,11 @@ impl<T> QuadTreeNode<T> {
                 objects: Vec::new(),
             })),
             max_leaf_objects: 1,
+            depth_left: Some(100),
         }
     }
 
     fn insert(&mut self, object: QuadTreeObject<T>) {
-        /*match (self.children_nodes.is_empty(), self.objects.is_empty()) {
-            (true, true) => {
-                self.objects.push(Leaf::new(object));
-                return;
-            }
-            (true, false) => {
-                // this is currently a leaf node, we need to split the node
-                let mut objects = self.objects.objects.drain(..).collect::<Vec<_>>();
-                objects.push(object);
-
-                self.add_children_nodes();
-                self.bulk_insert(objects);
-            }
-            (false, true) => {
-                // find the quadrant and insert into the child node
-                let quadrant = find_quadrant(self.pos, self.width, &object);
-
-                let child = &mut self.children_nodes[quadrant as usize];
-                child.insert(object);
-            }
-            (false, false) => {
-                // should never happen, but just in case
-                let mut objects = self.objects.drain(..).collect::<Vec<_>>();
-                objects.push(object);
-
-                self.add_children_nodes();
-                self.bulk_insert(objects);
-            }
-        }*/
         match self.child {
             Some(QuadTreeBranch::Node(ref mut nodes)) => {
                 let quadrant = find_quadrant(self.pos, self.width, &object);
@@ -92,7 +100,9 @@ impl<T> QuadTreeNode<T> {
                 child.insert(object);
             }
             Some(QuadTreeBranch::Leaf(ref mut leaf)) => {
-                if leaf.objects.len() < self.max_leaf_objects {
+                if leaf.objects.len() < self.max_leaf_objects
+                    || !(self.depth_left.is_some() && self.depth_left.unwrap() > 0)
+                {
                     leaf.objects.push(object);
                     return;
                 } else {
@@ -129,23 +139,22 @@ impl<T> QuadTreeNode<T> {
         match self.child {
             Some(QuadTreeBranch::Node(ref nodes)) => {
                 let quadrant = find_quadrant(self.pos, self.width, object);
-                /*println!(
-                    "chose quadrant {:?} for object at [{:.2}, {:.2}] with square at range [{} - {}, {} - {}]",
-                    quadrant,
-                    object.transform.x,
-                    object.transform.y,
-                    self.pos[0],
-                    self.pos[0] + self.width,
-                    self.pos[1],
-                    self.pos[1] + self.width
-                );*/
 
                 let child = &nodes[quadrant as usize];
                 child.find_closest_object_to_point(object)
             }
             Some(QuadTreeBranch::Leaf(ref leaf)) => {
                 // temporary implementation, just return the first object
-                return Some(&leaf.objects[0]);
+                let mut closest_index = 0;
+                let mut closest_distance = f64::INFINITY;
+                for (i, object) in (&leaf.objects).into_iter().enumerate() {
+                    let distance = object.transform.squared_distance_to(&object.transform);
+                    if distance < closest_distance {
+                        closest_distance = distance;
+                        closest_index = i;
+                    }
+                }
+                return Some(&leaf.objects[closest_index]);
             }
             None => {
                 return None;
@@ -156,28 +165,15 @@ impl<T> QuadTreeNode<T> {
     fn add_children_nodes(&mut self) {
         let new_width = self.width / 2.0;
 
-        let offsets = [[0.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]];
-
-        let mut children_nodes: [QuadTreeNode<T>; 4] = unsafe {
-            // this is safe because we are initializing all the elements, and is faster becase we don't need to write an arbitrary value
-            let mut nodes: [std::mem::MaybeUninit<QuadTreeNode<T>>; 4] = [
-                std::mem::MaybeUninit::uninit(),
-                std::mem::MaybeUninit::uninit(),
-                std::mem::MaybeUninit::uninit(),
-                std::mem::MaybeUninit::uninit(),
-            ];
-
-            for (i, offset) in offsets.into_iter().enumerate() {
-                let new_pos = [
-                    self.pos[0] + offset[0] * new_width,
-                    self.pos[1] + offset[1] * new_width,
-                ];
-                nodes[i]
-                    .as_mut_ptr()
-                    .write(QuadTreeNode::new(new_pos, new_width));
-            }
-            std::mem::transmute(nodes)
-        };
+        let children_nodes = [
+            QuadTreeNode::new([self.pos[0], self.pos[1] + new_width], new_width),
+            QuadTreeNode::new([self.pos[0], self.pos[1]], new_width),
+            QuadTreeNode::new(
+                [self.pos[0] + new_width, self.pos[1] + new_width],
+                new_width,
+            ),
+            QuadTreeNode::new([self.pos[0] + new_width, self.pos[1]], new_width),
+        ];
 
         self.child = Some(QuadTreeBranch::Node(Box::new(children_nodes)));
     }
@@ -192,6 +188,29 @@ impl<T> QuadTreeNode<T> {
 
         !(left || right || top || bottom)
     }
+
+    fn query_range(&self, range: &dyn QuadTreeRange) -> Vec<&QuadTreeObject<T>> {
+        let mut objects = vec![];
+
+        if let Some(ref child) = self.child {
+            match child {
+                QuadTreeBranch::Node(nodes) => {
+                    for node in &**nodes {
+                        objects.extend(node.query_range(range));
+                    }
+                }
+                QuadTreeBranch::Leaf(leaf) => {
+                    for object in &leaf.objects {
+                        if range.contains_point(&object.transform) {
+                            objects.push(object);
+                        }
+                    }
+                }
+            }
+        }
+
+        objects
+    }
 }
 
 struct QuadTree<T> {
@@ -199,13 +218,14 @@ struct QuadTree<T> {
 }
 
 impl<T> QuadTree<T> {
-    fn new(pos: [f64; 2], width: f64) -> Self {
+    fn new(pos: [f64; 2], width: f64, max_depth: Option<u32>) -> Self {
         Self {
             root: QuadTreeNode {
                 pos,
                 width,
                 child: None,
                 max_leaf_objects: 1,
+                depth_left: max_depth,
             },
         }
     }
@@ -274,12 +294,12 @@ mod tests {
 
     #[test]
     fn test_insert() {
-        let mut quad_tree = QuadTree::new([0.0, 0.0], 100.0);
+        let mut quad_tree = QuadTree::new([0.0, 0.0], 100.0, Some(100));
 
         let mut objects = vec![];
         let mut objects_to_search = vec![];
 
-        for _ in 0..100 {
+        for _ in 0..10000 {
             let mut rng = rand::thread_rng();
             let random_x = rng.gen::<f64>() * 100.0;
             let random_y = rng.gen::<f64>() * 100.0;
@@ -334,6 +354,95 @@ mod tests {
                     "could not find object at [{:.2}, {:.2}]",
                     object.transform.x, object.transform.y
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn test_query() {
+        let mut quad_tree = QuadTree::new([0.0, 0.0], 100.0, Some(100));
+
+        let mut objects = vec![];
+        let mut objects_to_search = vec![];
+
+        for _ in 0..10000 {
+            let mut rng = rand::thread_rng();
+            let random_x = rng.gen::<f64>() * 100.0;
+            let random_y = rng.gen::<f64>() * 100.0;
+
+            let object = QuadTreeObject {
+                object: Collider {
+                    shape: CircleCollider { radius: 10.0 }.into(),
+                    properties: ColliderProperties::default(),
+                },
+                transform: Transform {
+                    x: random_x,
+                    y: random_y,
+                    ..Transform::default()
+                },
+            };
+
+            let object_to_search = QuadTreeObject {
+                object: Collider {
+                    shape: CircleCollider { radius: 10.0 }.into(),
+                    properties: ColliderProperties::default(),
+                },
+                transform: Transform {
+                    x: random_x,
+                    y: random_y,
+                    ..Transform::default()
+                },
+            };
+
+            objects.push(object);
+            objects_to_search.push(object_to_search);
+        }
+
+        quad_tree.root.bulk_insert(objects);
+
+        for _ in 0..10000 {
+            let mut rng = rand::thread_rng();
+            let random_x = rng.gen::<f64>() * 100.0;
+            let random_y = rng.gen::<f64>() * 100.0;
+
+            let range = QuadTreeRangeCircle {
+                center: Transform {
+                    x: random_x,
+                    y: random_y,
+                    ..Transform::default()
+                },
+                radius: 10.0,
+            };
+
+            let objects = quad_tree.root.query_range(&range);
+
+            let transforms_in_range = objects
+                .iter()
+                .map(|object| object.transform)
+                .collect::<Vec<_>>();
+
+            for object in objects {
+                let object_transform = object.transform;
+                let distance = object_transform.distance_to(&range.center);
+                if distance > range.radius {
+                    panic!(
+                        "object at [{:.2}, {:.2}] is outside of the range",
+                        object_transform.x, object_transform.y
+                    );
+                }
+            }
+
+            for object in objects_to_search.iter() {
+                if !transforms_in_range.contains(&object.transform) {
+                    let object_transform = object.transform;
+                    let distance = object_transform.distance_to(&range.center);
+                    if distance <= range.radius {
+                        panic!(
+                            "object at [{:.2}, {:.2}] is inside of the range but was not found",
+                            object_transform.x, object_transform.y
+                        );
+                    }
+                }
             }
         }
     }

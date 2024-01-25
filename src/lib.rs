@@ -35,7 +35,7 @@ impl Default for Color {
 }
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
     pub x: f64,
     pub y: f64,
@@ -60,6 +60,21 @@ impl Transform {
             origin_x: 0.0,
             origin_y: 0.0,
         }
+    }
+
+    /// returns the distance between two transforms
+    pub fn distance_to(&self, other: &Transform) -> f64 {
+        let x = self.x - other.x;
+        let y = self.y - other.y;
+        (x.powi(2) + y.powi(2)).sqrt()
+    }
+
+    /// squared distance is faster than distance, but it is not the actual distance
+    /// this is useful for comparing distances, but not for getting the actual distance
+    pub fn squared_distance_to(&self, other: &Transform) -> f64 {
+        let x = self.x - other.x;
+        let y = self.y - other.y;
+        x.powi(2) + y.powi(2)
     }
 }
 
