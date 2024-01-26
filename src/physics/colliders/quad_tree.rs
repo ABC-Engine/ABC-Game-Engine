@@ -79,7 +79,7 @@ struct QuadTreeNode<T> {
 }
 
 impl<T> QuadTreeNode<T> {
-    fn new(pos: [f64; 2], width: f64) -> Self {
+    fn new(pos: [f64; 2], width: f64, depth_left: Option<u32>) -> Self {
         Self {
             pos,
             width,
@@ -87,7 +87,7 @@ impl<T> QuadTreeNode<T> {
                 objects: Vec::new(),
             })),
             max_leaf_objects: 1,
-            depth_left: Some(100),
+            depth_left: depth_left,
         }
     }
 
@@ -164,15 +164,17 @@ impl<T> QuadTreeNode<T> {
 
     fn add_children_nodes(&mut self) {
         let new_width = self.width / 2.0;
+        let new_depth = self.depth_left.map(|depth| depth - 1);
 
         let children_nodes = [
-            QuadTreeNode::new([self.pos[0], self.pos[1] + new_width], new_width),
-            QuadTreeNode::new([self.pos[0], self.pos[1]], new_width),
+            QuadTreeNode::new([self.pos[0], self.pos[1] + new_width], new_width, new_depth),
+            QuadTreeNode::new([self.pos[0], self.pos[1]], new_width, new_depth),
             QuadTreeNode::new(
                 [self.pos[0] + new_width, self.pos[1] + new_width],
                 new_width,
+                new_depth,
             ),
-            QuadTreeNode::new([self.pos[0] + new_width, self.pos[1]], new_width),
+            QuadTreeNode::new([self.pos[0] + new_width, self.pos[1]], new_width, new_depth),
         ];
 
         self.child = Some(QuadTreeBranch::Node(Box::new(children_nodes)));
@@ -445,5 +447,34 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_max_depth() {
+        let mut quad_tree = QuadTree::new([0.0, 0.0], 100.0, Some(100));
+
+        let mut objects = vec![];
+
+        let mut rng = rand::thread_rng();
+        let random_x = rng.gen::<f64>() * 100.0;
+        let random_y = rng.gen::<f64>() * 100.0;
+        for _ in 0..10000 {
+            let object = QuadTreeObject {
+                object: Collider {
+                    shape: CircleCollider { radius: 10.0 }.into(),
+                    properties: ColliderProperties::default(),
+                },
+                transform: Transform {
+                    x: random_x,
+                    y: random_y,
+                    ..Transform::default()
+                },
+            };
+
+            objects.push(object);
+        }
+
+        // I believe it will crash unless we have a max depth
+        quad_tree.bulk_insert(objects);
     }
 }
