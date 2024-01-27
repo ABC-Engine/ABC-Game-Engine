@@ -10,17 +10,17 @@ struct CollisionObject {
     transform: Transform,
 }
 
-struct QuadTreeObject<T> {
-    object: T,
+struct QuadTreeObject<'a, T> {
+    object: &'a T,
     transform: Transform,
 }
 
-struct Leaf<T> {
-    objects: Vec<QuadTreeObject<T>>,
+struct Leaf<'a, T> {
+    objects: Vec<QuadTreeObject<'a, T>>,
 }
 
-impl<T> Leaf<T> {
-    fn new(object: QuadTreeObject<T>) -> Self {
+impl<'a, T> Leaf<'a, T> {
+    fn new(object: QuadTreeObject<'a, T>) -> Self {
         Self {
             objects: vec![object],
         }
@@ -28,10 +28,10 @@ impl<T> Leaf<T> {
 }
 
 /// QuadTreeBranch is a branch of the quad tree, it can either be 4 children nodes or a leaf node
-enum QuadTreeBranch<T> {
+enum QuadTreeBranch<'a, T> {
     // lower left, upper left, lower right, upper right as indexed in the enum
-    Node(Box<[QuadTreeNode<T>; 4]>),
-    Leaf(Leaf<T>),
+    Node(Box<[QuadTreeNode<'a, T>; 4]>),
+    Leaf(Leaf<'a, T>),
 }
 
 trait QuadTreeRange {
@@ -68,17 +68,17 @@ impl QuadTreeRange for QuadTreeRangeRectangle {
     }
 }
 
-struct QuadTreeNode<T> {
+struct QuadTreeNode<'a, T> {
     // lower left corner
     pos: [f64; 2],
     width: f64,
-    child: Option<QuadTreeBranch<T>>,
+    child: Option<QuadTreeBranch<'a, T>>,
     max_leaf_objects: usize,
     // this being None means that there is no max depth, not that the depth is 0
     depth_left: Option<u32>,
 }
 
-impl<T> QuadTreeNode<T> {
+impl<'a, T> QuadTreeNode<'a, T> {
     fn new(pos: [f64; 2], width: f64, depth_left: Option<u32>) -> Self {
         Self {
             pos,
@@ -91,7 +91,7 @@ impl<T> QuadTreeNode<T> {
         }
     }
 
-    fn insert(&mut self, object: QuadTreeObject<T>) {
+    fn insert(&mut self, object: QuadTreeObject<'a, T>) {
         match self.child {
             Some(QuadTreeBranch::Node(ref mut nodes)) => {
                 let quadrant = find_quadrant(self.pos, self.width, &object);
@@ -120,7 +120,7 @@ impl<T> QuadTreeNode<T> {
         }
     }
 
-    fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<T>>) {
+    fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<'a, T>>) {
         // TODO: this is a naive implementation, we should be able to do this in parallel
         // but.. I'm not sure how to do that with the current structure
         for object in objects {
@@ -215,11 +215,11 @@ impl<T> QuadTreeNode<T> {
     }
 }
 
-struct QuadTree<T> {
-    root: QuadTreeNode<T>,
+struct QuadTree<'a, T> {
+    root: QuadTreeNode<'a, T>,
 }
 
-impl<T> QuadTree<T> {
+impl<'a, T> QuadTree<'a, T> {
     fn new(pos: [f64; 2], width: f64, max_depth: Option<u32>) -> Self {
         Self {
             root: QuadTreeNode {
@@ -232,7 +232,7 @@ impl<T> QuadTree<T> {
         }
     }
 
-    fn insert(&mut self, object: QuadTreeObject<T>) {
+    fn insert(&mut self, object: QuadTreeObject<'a, T>) {
         if !self.root.could_fit_point(&object) {
             panic!("object does not fit in the quad tree: user error");
         }
@@ -240,7 +240,7 @@ impl<T> QuadTree<T> {
         self.root.insert(object);
     }
 
-    fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<T>>) {
+    fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<'a, T>>) {
         for object in &objects {
             if !self.root.could_fit_point(object) {
                 panic!("object does not fit in the quad tree: user error");
@@ -301,16 +301,17 @@ mod tests {
         let mut objects = vec![];
         let mut objects_to_search = vec![];
 
+        let collider = Collider {
+            shape: CircleCollider { radius: 10.0 }.into(),
+            properties: ColliderProperties::default(),
+        };
         for _ in 0..10000 {
             let mut rng = rand::thread_rng();
             let random_x = rng.gen::<f64>() * 100.0;
             let random_y = rng.gen::<f64>() * 100.0;
 
             let object = QuadTreeObject {
-                object: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
+                object: &collider,
                 transform: Transform {
                     x: random_x,
                     y: random_y,
@@ -319,10 +320,7 @@ mod tests {
             };
 
             let object_to_search = QuadTreeObject {
-                object: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
+                object: &collider,
                 transform: Transform {
                     x: random_x,
                     y: random_y,
@@ -367,16 +365,17 @@ mod tests {
         let mut objects = vec![];
         let mut objects_to_search = vec![];
 
+        let collider = Collider {
+            shape: CircleCollider { radius: 10.0 }.into(),
+            properties: ColliderProperties::default(),
+        };
         for _ in 0..10000 {
             let mut rng = rand::thread_rng();
             let random_x = rng.gen::<f64>() * 100.0;
             let random_y = rng.gen::<f64>() * 100.0;
 
             let object = QuadTreeObject {
-                object: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
+                object: &collider,
                 transform: Transform {
                     x: random_x,
                     y: random_y,
@@ -385,10 +384,7 @@ mod tests {
             };
 
             let object_to_search = QuadTreeObject {
-                object: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
+                object: &collider,
                 transform: Transform {
                     x: random_x,
                     y: random_y,
@@ -458,12 +454,13 @@ mod tests {
         let mut rng = rand::thread_rng();
         let random_x = rng.gen::<f64>() * 100.0;
         let random_y = rng.gen::<f64>() * 100.0;
+        let collider = Collider {
+            shape: CircleCollider { radius: 10.0 }.into(),
+            properties: ColliderProperties::default(),
+        };
         for _ in 0..10000 {
             let object = QuadTreeObject {
-                object: Collider {
-                    shape: CircleCollider { radius: 10.0 }.into(),
-                    properties: ColliderProperties::default(),
-                },
+                object: &collider,
                 transform: Transform {
                     x: random_x,
                     y: random_y,
