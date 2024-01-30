@@ -237,8 +237,7 @@ fn box_box_collision(
 
 pub struct CollisionSystem {}
 
-/// A basic O(n^2) naive collision detection system, this will be replaced with a quadtree in the near future (hopefully)
-/// I just wanted to get something working for now  ¯\_(ツ)_/¯
+/// A collision system that uses a quad tree to find possible collisions and then checks for collisions and resolves them
 impl System for CollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
         let mut possible_collisions = vec![];
@@ -252,9 +251,8 @@ impl System for CollisionSystem {
 
             // looks weird but has to be done to avoid lifetime issues
             for entity in entities.iter() {
-                let (collider, transform, _) =
-                    entities_and_components
-                        .try_get_components::<(Collider, Transform, RigidBody)>(**entity);
+                let (collider, transform) =
+                    entities_and_components.try_get_components::<(Collider, Transform)>(**entity);
 
                 match (collider, transform) {
                     (Some(collider), Some(transform)) => {
@@ -275,9 +273,6 @@ impl System for CollisionSystem {
                     possible_collision[1].get_object().clone(),
                 ]);
             }
-            if possible_collisions.len() != 0 {
-                println!("{} vs {}", possible_collisions.len(), entities.len().pow(2));
-            }
         }
 
         for possible_collision in possible_collisions {
@@ -291,8 +286,6 @@ impl System for CollisionSystem {
 
             let (collider_1, transform_1, rigidbody_1) = entities_and_components
                 .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_1);
-
-            // if the first entity doesn't have a rigidbody, it is static and we don't need to check for collisions as they will be handled by the other entity
 
             match (collider_1, transform_1, rigidbody_1) {
                 (Some(collider_1), Some(transform_1), Some(rigidbody_1)) => {
@@ -323,6 +316,38 @@ impl System for CollisionSystem {
                                 collider_1,
                                 transform_1,
                                 rigidbody_1,
+                                collider_2,
+                                transform_2,
+                                &mut rigidbody::RigidBody::default(),
+                            );
+                        }
+                        _ => {}
+                    }
+                }
+                (Some(collider_1), Some(transform_1), None) => {
+                    let collider_1_pointer: *mut Collider = collider_1;
+                    let collider_1 = unsafe { &mut *collider_1_pointer };
+                    let transform_1_pointer: *mut Transform = transform_1;
+                    let transform_1 = unsafe { &mut *transform_1_pointer };
+
+                    match entities_and_components
+                        .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_2)
+                    {
+                        (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
+                            check_and_resolve_collision(
+                                collider_1,
+                                transform_1,
+                                &mut rigidbody::RigidBody::default(),
+                                collider_2,
+                                transform_2,
+                                rigidbody_2,
+                            );
+                        }
+                        (Some(collider_2), Some(transform_2), None) => {
+                            check_and_resolve_collision(
+                                collider_1,
+                                transform_1,
+                                &mut rigidbody::RigidBody::default(),
                                 collider_2,
                                 transform_2,
                                 &mut rigidbody::RigidBody::default(),

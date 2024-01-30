@@ -1,6 +1,6 @@
+/// this is a work in progress, it does not yet work in it's entirety
 use std::panic;
 
-/// this is a work in progress, it does not yet work
 use crate::physics::colliders::Collider;
 use crate::physics::colliders::ColliderShape;
 use crate::physics::colliders::ColliderShape::Circle;
@@ -17,7 +17,11 @@ pub fn collider_to_quad_tree_range(
             radius: *radius,
         }),
         ColliderShape::Box(BoxCollider { width, height }) => Box::new(QuadTreeRangeRectangle {
-            center: *transform,
+            center: Transform {
+                x: transform.x,
+                y: transform.y,
+                ..Transform::default()
+            },
             width: *width,
             height: *height,
         }),
