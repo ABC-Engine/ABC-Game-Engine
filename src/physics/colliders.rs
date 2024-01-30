@@ -1,3 +1,7 @@
+use core::panic;
+
+use self::quad_tree::collider_to_quad_tree_range;
+
 use super::rigidbody::{self, RigidBody};
 use crate::*;
 use glam::Vec2;
@@ -237,14 +241,56 @@ pub struct CollisionSystem {}
 /// I just wanted to get something working for now  ¯\_(ツ)_/¯
 impl System for CollisionSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let entities = entities_and_components
-            .get_entities_with_component::<Collider>()
-            .cloned()
-            .collect::<Vec<Entity>>();
+        let mut possible_collisions = vec![];
+        {
+            let mut quad_tree = quad_tree::QuadTree::new([-800.0, -800.0], 1600.0, Some(100));
 
-        for entity_1 in entities.iter() {
+            let entities = entities_and_components
+                .get_entities_with_component::<Collider>()
+                .map(|entity| entity)
+                .collect::<Vec<&Entity>>();
+
+            // looks weird but has to be done to avoid lifetime issues
+            for entity in entities.iter() {
+                let (collider, transform, _) =
+                    entities_and_components
+                        .try_get_components::<(Collider, Transform, RigidBody)>(**entity);
+
+                match (collider, transform) {
+                    (Some(collider), Some(transform)) => {
+                        let result = quad_tree.try_insert(quad_tree::QuadTreeObject::new(
+                            *entity,
+                            transform.clone(),
+                            collider_to_quad_tree_range(&collider, transform),
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+
+            let found_possible_collisions = quad_tree.find_possible_collisions();
+            for possible_collision in found_possible_collisions {
+                possible_collisions.push([
+                    possible_collision[0].get_object().clone(),
+                    possible_collision[1].get_object().clone(),
+                ]);
+            }
+            if possible_collisions.len() != 0 {
+                println!("{} vs {}", possible_collisions.len(), entities.len().pow(2));
+            }
+        }
+
+        for possible_collision in possible_collisions {
+            let entity_1 = possible_collision[0];
+            let entity_2 = possible_collision[1];
+
+            if entity_1 == entity_2 {
+                // we double check to make sure the entities are not the same, because it could cause a segfault
+                continue;
+            }
+
             let (collider_1, transform_1, rigidbody_1) = entities_and_components
-                .try_get_components_mut::<(Collider, Transform, RigidBody)>(*entity_1);
+                .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_1);
 
             // if the first entity doesn't have a rigidbody, it is static and we don't need to check for collisions as they will be handled by the other entity
 
@@ -259,36 +305,30 @@ impl System for CollisionSystem {
                     let rigidbody_1_pointer: *mut RigidBody = rigidbody_1;
                     let rigidbody_1 = unsafe { &mut *rigidbody_1_pointer };
 
-                    for entity_2 in entities.iter() {
-                        if entity_1 == entity_2 {
-                            continue;
+                    match entities_and_components
+                        .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_2)
+                    {
+                        (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
+                            check_and_resolve_collision(
+                                collider_1,
+                                transform_1,
+                                rigidbody_1,
+                                collider_2,
+                                transform_2,
+                                rigidbody_2,
+                            );
                         }
-
-                        match (entities_and_components
-                            .try_get_components_mut::<(Collider, Transform, RigidBody)>(*entity_2))
-                        {
-                            (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
-                                check_and_resolve_collision(
-                                    collider_1,
-                                    transform_1,
-                                    rigidbody_1,
-                                    collider_2,
-                                    transform_2,
-                                    rigidbody_2,
-                                );
-                            }
-                            (Some(collider_2), Some(transform_2), None) => {
-                                check_and_resolve_collision(
-                                    collider_1,
-                                    transform_1,
-                                    rigidbody_1,
-                                    collider_2,
-                                    transform_2,
-                                    &mut rigidbody::RigidBody::default(),
-                                );
-                            }
-                            _ => {}
+                        (Some(collider_2), Some(transform_2), None) => {
+                            check_and_resolve_collision(
+                                collider_1,
+                                transform_1,
+                                rigidbody_1,
+                                collider_2,
+                                transform_2,
+                                &mut rigidbody::RigidBody::default(),
+                            );
                         }
+                        _ => {}
                     }
                 }
                 _ => {}

@@ -2,18 +2,46 @@ use std::panic;
 
 /// this is a work in progress, it does not yet work
 use crate::physics::colliders::Collider;
+use crate::physics::colliders::ColliderShape;
+use crate::physics::colliders::ColliderShape::Circle;
+use crate::physics::colliders::{BoxCollider, CircleCollider};
 use crate::Transform;
 
-#[derive(Clone, Copy)]
-struct CollisionObject {
-    collider: Collider,
-    transform: Transform,
+pub fn collider_to_quad_tree_range(
+    collider: &Collider,
+    transform: &Transform,
+) -> Box<dyn QuadTreeRange> {
+    match &collider.shape {
+        Circle(CircleCollider { radius }) => Box::new(QuadTreeRangeCircle {
+            center: *transform,
+            radius: *radius,
+        }),
+        ColliderShape::Box(BoxCollider { width, height }) => Box::new(QuadTreeRangeRectangle {
+            center: *transform,
+            width: *width,
+            height: *height,
+        }),
+    }
 }
 
-struct QuadTreeObject<'a, T> {
+pub struct QuadTreeObject<'a, T> {
     object: &'a T,
     transform: Transform,
     query_range: Box<dyn QuadTreeRange>,
+}
+
+impl<'a, T> QuadTreeObject<'a, T> {
+    pub fn new(object: &'a T, transform: Transform, query_range: Box<dyn QuadTreeRange>) -> Self {
+        Self {
+            object,
+            transform,
+            query_range,
+        }
+    }
+
+    pub fn get_object(&self) -> &T {
+        self.object
+    }
 }
 
 struct Leaf<'a, T> {
@@ -65,9 +93,17 @@ impl QuadTreeRect {
 
         dx >= -self.width && dx <= self.width && dy >= -self.height && dy <= self.height
     }
+
+    fn get_double_rect(&self) -> Self {
+        Self {
+            pos: [self.pos[0], self.pos[1]],
+            width: self.width * 2.0,
+            height: self.height * 2.0,
+        }
+    }
 }
 
-trait QuadTreeRange {
+pub trait QuadTreeRange {
     fn contains_point(&self, point: &Transform) -> bool;
     // this rect will contain all of the points that are in the range, but not necessarily the other way around
     fn get_rect(&self) -> QuadTreeRect;
@@ -180,6 +216,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         self.child.is_none()
     }
 
+    /// just for testing purposes for now
     fn find_closest_object_to_point(
         &self,
         object: &QuadTreeObject<T>,
@@ -240,7 +277,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
     }
 
     fn query_range(&self, range: &dyn QuadTreeRange) -> Vec<&QuadTreeObject<T>> {
-        if !self.rect_intersect(&range.get_rect()) {
+        if !self.rect_intersect(&range.get_rect().get_double_rect()) {
             return vec![];
         }
         let mut objects = vec![];
@@ -325,12 +362,12 @@ impl<'a, T> QuadTreeNode<'a, T> {
     }
 }
 
-struct QuadTree<'a, T> {
+pub struct QuadTree<'a, T> {
     root: QuadTreeNode<'a, T>,
 }
 
 impl<'a, T> QuadTree<'a, T> {
-    fn new(pos: [f64; 2], width: f64, max_depth: Option<u32>) -> Self {
+    pub fn new(pos: [f64; 2], width: f64, max_depth: Option<u32>) -> Self {
         Self {
             root: QuadTreeNode {
                 pos,
@@ -342,7 +379,8 @@ impl<'a, T> QuadTree<'a, T> {
         }
     }
 
-    fn insert(&mut self, object: QuadTreeObject<'a, T>) {
+    /// this function will panic if the object does not fit in the quad tree
+    pub fn insert(&mut self, object: QuadTreeObject<'a, T>) {
         if !self.root.could_fit_point(&object) {
             panic!("object does not fit in the quad tree: user error");
         }
@@ -350,7 +388,17 @@ impl<'a, T> QuadTree<'a, T> {
         self.root.insert(object);
     }
 
-    fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<'a, T>>) {
+    /// This function will return false if the object does not fit in the quad tree
+    pub fn try_insert(&mut self, object: QuadTreeObject<'a, T>) -> bool {
+        if !self.root.could_fit_point(&object) {
+            return false;
+        }
+
+        self.root.insert(object);
+        true
+    }
+
+    pub fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<'a, T>>) {
         for object in &objects {
             if !self.root.could_fit_point(object) {
                 panic!("object does not fit in the quad tree: user error");
@@ -359,14 +407,14 @@ impl<'a, T> QuadTree<'a, T> {
         self.root.bulk_insert(objects);
     }
 
-    fn find_closest_object_to_point(
+    pub fn find_closest_object_to_point(
         &self,
         object: &QuadTreeObject<T>,
     ) -> Option<&QuadTreeObject<T>> {
         self.root.find_closest_object_to_point(object)
     }
 
-    fn find_possible_collisions(&self) -> Vec<(&QuadTreeObject<T>, &QuadTreeObject<T>)> {
+    pub fn find_possible_collisions(&self) -> Vec<[&QuadTreeObject<T>; 2]> {
         let mut collisions = vec![];
 
         let objects = self.root.collect_objects();
@@ -374,13 +422,16 @@ impl<'a, T> QuadTree<'a, T> {
         for object in objects {
             let range = object.query_range.as_ref();
             let objects_in_range = self.root.query_range(range);
+            if objects_in_range.len() > 0 {
+                println!("objects in range");
+            }
 
             for object_in_range in objects_in_range {
                 if object_in_range.transform == object.transform {
                     continue;
                 }
 
-                collisions.push((object, object_in_range));
+                collisions.push([object, object_in_range]);
             }
         }
 
@@ -511,17 +562,18 @@ mod tests {
             properties: ColliderProperties::default(),
         };
         let query_range = QuadTreeRangeCircle {
-            center: Transform {
-                x: 0.0,
-                y: 0.0,
-                ..Transform::default()
-            },
+            center: Transform::default(),
             radius: 10.0,
         };
+
         for _ in 0..10000 {
             let mut rng = rand::thread_rng();
             let random_x = rng.gen::<f64>() * 100.0;
             let random_y = rng.gen::<f64>() * 100.0;
+
+            let mut new_query_range = query_range.clone();
+            new_query_range.center.x = random_x;
+            new_query_range.center.y = random_y;
 
             let object = QuadTreeObject {
                 object: &collider,
@@ -530,7 +582,7 @@ mod tests {
                     y: random_y,
                     ..Transform::default()
                 },
-                query_range: Box::new(query_range),
+                query_range: Box::new(new_query_range),
             };
 
             let object_to_search = QuadTreeObject {
@@ -540,7 +592,7 @@ mod tests {
                     y: random_y,
                     ..Transform::default()
                 },
-                query_range: Box::new(query_range),
+                query_range: Box::new(new_query_range),
             };
 
             objects.push(object);
@@ -560,7 +612,7 @@ mod tests {
                     y: random_y,
                     ..Transform::default()
                 },
-                radius: 10.0,
+                radius: 0.0,
             };
 
             let objects = quad_tree.root.query_range(&range);
@@ -643,8 +695,6 @@ mod tests {
         let mut objects = vec![];
 
         let mut rng = rand::thread_rng();
-        let random_x = rng.gen::<f64>() * 100.0;
-        let random_y = rng.gen::<f64>() * 100.0;
 
         let collider = Collider {
             shape: CircleCollider { radius: 10.0 }.into(),
@@ -658,7 +708,10 @@ mod tests {
             },
             radius: 10.0,
         };
+
         for _ in 0..10000 {
+            let random_x = rng.gen::<f64>() * 100.0;
+            let random_y = rng.gen::<f64>() * 100.0;
             let object = QuadTreeObject {
                 object: &collider,
                 transform: Transform {
@@ -675,11 +728,14 @@ mod tests {
         quad_tree.bulk_insert(objects);
 
         let collisions = quad_tree.find_possible_collisions();
-        for (object, object_in_range) in collisions {
-            let distance = object.transform.distance_to(&object_in_range.transform);
-            if distance > 20.0 {
+        let num_collisions_in_quad = collisions.len() as i32;
+        for [object, object_in_range] in collisions {
+            let distance = object
+                .transform
+                .squared_distance_to(&object_in_range.transform);
+            if distance > 20.0 * 20.0 {
                 panic!(
-                    "objects at [{:.2}, {:.2}] and [{:.2}, {:.2}] are not colliding",
+                    "objects at [{:.2}, {:.2}] and [{:.2}, {:.2}] are colliding and should not be",
                     object.transform.x,
                     object.transform.y,
                     object_in_range.transform.x,
@@ -687,5 +743,21 @@ mod tests {
                 );
             }
         }
+
+        let mut num_collisions_in_brute_force = 0;
+        for object in quad_tree.root.collect_objects() {
+            for other_object in quad_tree.root.collect_objects() {
+                if object.transform == other_object.transform {
+                    continue;
+                }
+                let distance = object
+                    .transform
+                    .squared_distance_to(&other_object.transform);
+                if distance <= 20.0 * 20.0 {
+                    num_collisions_in_brute_force += 1;
+                }
+            }
+        }
+        assert_eq!(num_collisions_in_quad, num_collisions_in_brute_force);
     }
 }
