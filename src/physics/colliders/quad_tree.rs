@@ -179,6 +179,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         }
     }
 
+    /// this function will insert an object into the quad tree
     fn insert(&mut self, object: QuadTreeObject<'a, T>) {
         match self.child {
             Some(QuadTreeBranch::Node(ref mut nodes)) => {
@@ -208,6 +209,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         }
     }
 
+    /// this function will insert a vector of objects into the quad tree
     fn bulk_insert(&mut self, objects: Vec<QuadTreeObject<'a, T>>) {
         // TODO: this is a naive implementation, we should be able to do this in parallel
         // but.. I'm not sure how to do that with the current structure
@@ -216,6 +218,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         }
     }
 
+    /// this function checks if the node is empty, no children and no objects
     fn is_empty(&self) -> bool {
         self.child.is_none()
     }
@@ -251,6 +254,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         }
     }
 
+    /// this function will add the children nodes to the current node, also reffered to as the subdivide function
     fn add_children_nodes(&mut self) {
         let new_width = self.width / 2.0;
         let new_depth = self.depth_left.map(|depth| depth - 1);
@@ -269,6 +273,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         self.child = Some(QuadTreeBranch::Node(Box::new(children_nodes)));
     }
 
+    /// this function will return all of the objects in the quad tree that could be in the range
     fn could_fit_point(&self, object: &QuadTreeObject<T>) -> bool {
         let object_center = object.transform;
 
@@ -280,12 +285,13 @@ impl<'a, T> QuadTreeNode<'a, T> {
         !(left || right || top || bottom)
     }
 
+    /// this function will return all of the objects in the quad tree that are in the range
     fn query_range(&self, range: &dyn QuadTreeRange) -> Vec<&QuadTreeObject<T>> {
         if !self.rect_intersect(&range.get_rect().get_double_rect()) {
             // TODO: FIX THIS
             // without this nothing is wrong
 
-            //return vec![];
+            return vec![];
         }
         let mut objects = vec![];
 
@@ -310,33 +316,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         objects
     }
 
-    fn query_range_mut(&mut self, range: &dyn QuadTreeRange) -> Vec<&'a mut QuadTreeObject<T>> {
-        if !self.rect_intersect(&range.get_rect().get_double_rect()) {
-            return vec![];
-        }
-        let mut objects = vec![];
-
-        if let Some(ref mut child) = self.child {
-            // check if the range intersects with the current node
-            match child {
-                QuadTreeBranch::Node(nodes) => {
-                    for node in &mut **nodes {
-                        objects.extend(node.query_range_mut(range));
-                    }
-                }
-                QuadTreeBranch::Leaf(leaf) => {
-                    for object in &mut leaf.objects {
-                        if range.get_rect().could_intersect_point(&object.transform) {
-                            objects.push(object);
-                        }
-                    }
-                }
-            }
-        }
-
-        objects
-    }
-
+    /// this function will return all of the objects in the quad tree
     fn collect_objects(&self) -> Vec<&QuadTreeObject<T>> {
         let mut objects = vec![];
 
@@ -358,6 +338,7 @@ impl<'a, T> QuadTreeNode<'a, T> {
         objects
     }
 
+    /// this function checks if the range intersects with the current rectangle
     fn rect_intersect(&self, rect: &QuadTreeRect) -> bool {
         let dx = rect.pos[0] - self.pos[0];
         let dy = rect.pos[1] - self.pos[1];
