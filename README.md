@@ -50,10 +50,8 @@ fn main() {
             texture: load_texture("Sample_Images/sprite.png"),
         };
 
-        let sprite_object = entities_and_components.add_entity();
-        entities_and_components.add_component_to(sprite_object, Sprite::Image(sprite));
-        entities_and_components.add_component_to(
-            sprite_object,
+        let sprite_object = entities_and_components.add_entity_with(
+            Sprite::Image(sprite),
             Transform {
                 x: 20.0,
                 y: 20.0,
