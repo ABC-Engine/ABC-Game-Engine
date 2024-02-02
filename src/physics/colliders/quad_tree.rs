@@ -67,6 +67,7 @@ enum QuadTreeBranch<'a, T> {
     Leaf(Leaf<'a, T>),
 }
 
+#[derive(Debug)]
 struct QuadTreeRect {
     pos: [f64; 2],
     width: f64,
@@ -100,7 +101,7 @@ impl QuadTreeRect {
 
     fn get_double_rect(&self) -> Self {
         Self {
-            pos: [self.pos[0], self.pos[1]],
+            pos: self.pos,
             width: self.width * 2.0,
             height: self.height * 2.0,
         }
@@ -181,6 +182,10 @@ impl<'a, T> QuadTreeNode<'a, T> {
 
     /// this function will insert an object into the quad tree
     fn insert(&mut self, object: QuadTreeObject<'a, T>) {
+        if !self.could_fit_point(&object) {
+            panic!("object does not fit in the quad tree: developer error");
+        }
+
         match self.child {
             Some(QuadTreeBranch::Node(ref mut nodes)) => {
                 let quadrant = find_quadrant(self.pos, self.width, &object);
@@ -192,7 +197,9 @@ impl<'a, T> QuadTreeNode<'a, T> {
                 if leaf.objects.len() < self.max_leaf_objects
                     || !(self.depth_left.is_some() && self.depth_left.unwrap() > 0)
                 {
+                    let (object_x, object_y) = (object.transform.x, object.transform.y);
                     leaf.objects.push(object);
+                    //println!("inserted object positioned at: {:.2}, {:.2} in the leaf node with pos {}, {} and width {} and depth_left {:?} \n", object_x, object_y, self.pos[0], self.pos[1], self.width, self.depth_left);
                     return;
                 } else {
                     // this is currently a leaf node, we need to split the node
@@ -260,14 +267,14 @@ impl<'a, T> QuadTreeNode<'a, T> {
         let new_depth = self.depth_left.map(|depth| depth - 1);
 
         let children_nodes = [
-            QuadTreeNode::new([self.pos[0], self.pos[1] + new_width], new_width, new_depth),
             QuadTreeNode::new([self.pos[0], self.pos[1]], new_width, new_depth),
+            QuadTreeNode::new([self.pos[0], self.pos[1] + new_width], new_width, new_depth),
+            QuadTreeNode::new([self.pos[0] + new_width, self.pos[1]], new_width, new_depth),
             QuadTreeNode::new(
                 [self.pos[0] + new_width, self.pos[1] + new_width],
                 new_width,
                 new_depth,
             ),
-            QuadTreeNode::new([self.pos[0] + new_width, self.pos[1]], new_width, new_depth),
         ];
 
         self.child = Some(QuadTreeBranch::Node(Box::new(children_nodes)));
@@ -287,13 +294,10 @@ impl<'a, T> QuadTreeNode<'a, T> {
 
     /// this function will return all of the objects in the quad tree that are in the range
     fn query_range(&self, range: &dyn QuadTreeRange) -> Vec<&QuadTreeObject<T>> {
-        if !self.rect_intersect(&range.get_rect().get_double_rect()) {
-            // TODO: FIX THIS
-            // without this nothing is wrong
-
-            return vec![];
-        }
         let mut objects = vec![];
+        if !(self.rect_intersect(&range.get_rect().get_double_rect())) {
+            return Vec::new();
+        }
 
         if let Some(ref child) = self.child {
             // check if the range intersects with the current node
@@ -340,13 +344,27 @@ impl<'a, T> QuadTreeNode<'a, T> {
 
     /// this function checks if the range intersects with the current rectangle
     fn rect_intersect(&self, rect: &QuadTreeRect) -> bool {
-        let dx = rect.pos[0] - self.pos[0];
-        let dy = rect.pos[1] - self.pos[1];
+        // adjust the center
+        let adjusted_self_pos = [
+            self.pos[0] + (self.width / 2.0),
+            self.pos[1] + (self.width / 2.0),
+        ];
+
+        let dx = rect.pos[0] - adjusted_self_pos[0];
+        let dy = rect.pos[1] - adjusted_self_pos[1];
 
         let combined_half_width = (self.width + rect.width) / 2.0;
         let combined_half_height = (self.width + rect.height) / 2.0;
 
-        dx.abs() <= combined_half_width && dy.abs() <= combined_half_height
+        let result = dx.abs() <= combined_half_width && dy.abs() <= combined_half_height;
+
+        if !result {
+            /*println!(
+                "self pos: ({:.2}, {:.2}), dx: {:.2}, dy:{:.2}, c_width: {:.2}, c_height: {:.2}, self width: {:.2}, rect: {:?}",
+                adjusted_self_pos[0], adjusted_self_pos[1], dx, dy, combined_half_width, combined_half_height, self.width, rect
+            );*/
+        }
+        result
     }
 }
 
@@ -433,7 +451,7 @@ enum Quadrant {
 }
 
 fn find_quadrant<T>(pos: [f64; 2], width: f64, object: &QuadTreeObject<T>) -> Quadrant {
-    let center = [pos[0] + width / 2.0, pos[1] + width / 2.0];
+    let center = [pos[0] + (width / 2.0), pos[1] + (width / 2.0)];
     let object_center = object.transform;
 
     let left = object_center.x <= center[0];
@@ -686,7 +704,7 @@ mod tests {
             properties: ColliderProperties::default(),
         };
 
-        for _ in 0..200 {
+        for _ in 0..2000 {
             let random_x = rng.gen::<f64>() * 100.0;
             let random_y = rng.gen::<f64>() * 100.0;
             let new_query_range = QuadTreeRangeCircle {
@@ -749,5 +767,20 @@ mod tests {
         );
         // for now num_collisions_in_quad will have double the amount if the radii are equal.
         assert_eq!(num_collisions_in_quad, num_collisions_in_brute_force * 2);
+    }
+
+    #[test]
+    fn test_rect_intersect() {
+        let node: QuadTreeNode<'_, i32> = QuadTreeNode::new([-100.0, -100.0], 100.0, Some(100));
+        let range = QuadTreeRangeCircle {
+            center: Transform {
+                x: 5.0,
+                y: 5.0,
+                ..Transform::default()
+            },
+            radius: 10.0,
+        };
+
+        assert!(node.rect_intersect(&range.get_rect().get_double_rect()));
     }
 }
