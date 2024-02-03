@@ -290,7 +290,7 @@ impl System for CollisionSystem {
             match (collider_1, transform_1, rigidbody_1) {
                 (Some(collider_1), Some(transform_1), Some(rigidbody_1)) => {
                     // our use of unsafe here is sound because when we get more components we check
-                    // the entity id to make sure it is the same as the entity id we are currently iterating over
+                    // the entity id to make sure it is the not the same as the entity id we are currently iterating over
                     let collider_1_pointer: *mut Collider = collider_1;
                     let collider_1 = unsafe { &mut *collider_1_pointer };
                     let transform_1_pointer: *mut Transform = transform_1;
@@ -547,8 +547,6 @@ fn handle_non_static_collsion(
     final_velocity_1 = velocity_1 - average_elasticity * (velocity_1 - final_velocity_1);
     final_velocity_2 = velocity_2 - average_elasticity * (velocity_2 - final_velocity_2);
 
-    // mix the current velocity with the final velocity based on the elasticity of the object
-    // I have no idea if this is the correct way to do this, but it seems to work
     rb_1.set_velocity(final_velocity_1);
     rb_2.set_velocity(final_velocity_2);
 }

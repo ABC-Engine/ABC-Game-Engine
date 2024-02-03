@@ -182,10 +182,6 @@ impl<'a, T> QuadTreeNode<'a, T> {
 
     /// this function will insert an object into the quad tree
     fn insert(&mut self, object: QuadTreeObject<'a, T>) {
-        if !self.could_fit_point(&object) {
-            panic!("object does not fit in the quad tree: developer error");
-        }
-
         match self.child {
             Some(QuadTreeBranch::Node(ref mut nodes)) => {
                 let quadrant = find_quadrant(self.pos, self.width, &object);

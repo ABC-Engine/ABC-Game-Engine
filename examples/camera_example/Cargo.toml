@@ -1,5 +1,5 @@
 [package]
-name = "mask_test"
+name = "camera_example"
 version = "0.1.0"
 edition = "2021"
 

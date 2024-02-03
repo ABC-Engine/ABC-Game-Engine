@@ -94,7 +94,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 
 [[package]]
-name = "audio_test"
+name = "audio_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
@@ -208,7 +208,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "camera_test"
+name = "camera_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
@@ -1089,7 +1089,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mask_test"
+name = "mask_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
@@ -1461,7 +1461,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
-name = "physics_test"
+name = "physics_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
@@ -1478,7 +1478,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pixel_scaling_test"
+name = "pixel_scaling_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
@@ -1813,7 +1813,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "spritesheet_test"
+name = "spritesheet_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
