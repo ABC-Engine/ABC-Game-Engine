@@ -81,7 +81,7 @@ fn main() {
 The engine comes with a fully functional renderer for the console. The renderer supports:
 * Sprites
 * Animations
-* Diffing
+* Basic Per Pixel Diffing
   
 ### Physics Engine
 A basic physics engine with rigid bodies and colliders.
