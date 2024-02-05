@@ -5,6 +5,7 @@ use self::quad_tree::collider_to_quad_tree_range;
 use super::rigidbody::{self, RigidBody};
 use crate::*;
 use glam::Vec2;
+use rand::seq::SliceRandom;
 mod quad_tree;
 
 #[derive(Clone, Copy)]
@@ -275,6 +276,10 @@ impl System for CollisionSystem {
             }
         }
 
+        //possible_collisions.shuffle(&mut rand::thread_rng());
+
+        // TODO: make it so that each resolution reads the transform before it was modified by the previous resolution,
+        // this is to prevent objects from getting stuck in each other
         for possible_collision in possible_collisions {
             let entity_1 = possible_collision[0];
             let entity_2 = possible_collision[1];
@@ -469,7 +474,9 @@ fn handle_static_collision(
     final_velocity_1 = Vec2::new(force_vector[0] as f32, force_vector[1] as f32).normalize();
     final_velocity_1 *= velocity_1_magnitude;
 
-    rb_1.set_velocity(final_velocity_1 * rb_1.get_elasticity());
+    let velocity_to_add_1 = (final_velocity_1 * rb_1.get_elasticity()) - velocity_1;
+
+    rb_1.apply_force(velocity_to_add_1 * rb_1.get_mass());
 }
 
 fn handle_non_static_collsion(
@@ -547,6 +554,11 @@ fn handle_non_static_collsion(
     final_velocity_1 = velocity_1 - average_elasticity * (velocity_1 - final_velocity_1);
     final_velocity_2 = velocity_2 - average_elasticity * (velocity_2 - final_velocity_2);
 
-    rb_1.set_velocity(final_velocity_1);
-    rb_2.set_velocity(final_velocity_2);
+    let velocity_to_add_1 = final_velocity_1 - velocity_1;
+    let velocity_to_add_2 = final_velocity_2 - velocity_2;
+
+    rb_1.apply_force(velocity_to_add_1 * mass_1 as f32);
+    rb_2.apply_force(velocity_to_add_2 * mass_2 as f32);
+    //rb_1.set_velocity(final_velocity_1);
+    //rb_2.set_velocity(final_velocity_2);
 }
