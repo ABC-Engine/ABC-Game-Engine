@@ -76,4 +76,17 @@ fn main() {
 }
 ```
 
+# Current Features
+### Console Renderer
+The engine comes with a fully functional renderer for the console. The renderer supports:
+* Sprites
+* Animations
+* Basic Per Pixel Diffing
+  
+### Physics Engine
+A basic physics engine with rigid bodies and colliders.
 
+# Planned Features
+These are the planned features for the engine in order
+### Secondary non-console renderer
+A non-console renderer, that can render everything without any adjustment needed other than changing the renderer.
