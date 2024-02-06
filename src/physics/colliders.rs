@@ -80,9 +80,9 @@ impl From<BoxCollider> for ColliderShape {
 
 fn circle_circle_collision(
     circle_collider_1: &CircleCollider,
-    circle_1_transform: &mut Transform,
+    circle_1_transform: &Transform,
     circle_collider_2: &CircleCollider,
-    circle_2_transform: &mut Transform,
+    circle_2_transform: &Transform,
 ) -> (bool, [f64; 2]) {
     let combined_radii = circle_collider_1.radius + circle_collider_2.radius;
     let distance_between_centers = ((circle_1_transform.x - circle_2_transform.x).powi(2)
@@ -236,6 +236,12 @@ fn box_box_collision(
     (false, [0.0, 0.0])
 }
 
+/// I use this to store the new position of the object after the collision, this will be added to the transform after all collisions are resolved
+struct TransformBuffer {
+    x: f64,
+    y: f64,
+}
+
 pub struct CollisionSystem {}
 
 /// A collision system that uses a quad tree to find possible collisions and then checks for collisions and resolves them
@@ -257,7 +263,7 @@ impl System for CollisionSystem {
 
                 match (collider, transform) {
                     (Some(collider), Some(transform)) => {
-                        let result = quad_tree.try_insert(quad_tree::QuadTreeObject::new(
+                        let _ = quad_tree.try_insert(quad_tree::QuadTreeObject::new(
                             *entity,
                             transform.clone(),
                             collider_to_quad_tree_range(&collider, transform),
@@ -278,7 +284,7 @@ impl System for CollisionSystem {
 
         //possible_collisions.shuffle(&mut rand::thread_rng());
 
-        // TODO: make it so that each resolution reads the transform before it was modified by the previous resolution,
+        // each resolution reads the transform before it was modified by the previous resolution,
         // this is to prevent objects from getting stuck in each other
         for possible_collision in possible_collisions {
             let entity_1 = possible_collision[0];
@@ -289,11 +295,27 @@ impl System for CollisionSystem {
                 continue;
             }
 
-            let (collider_1, transform_1, rigidbody_1) = entities_and_components
-                .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_1);
+            if entities_and_components
+                .try_get_component_mut::<TransformBuffer>(entity_1)
+                .is_none()
+            {
+                entities_and_components
+                    .add_component_to(entity_1, TransformBuffer { x: 0.0, y: 0.0 });
+            }
 
-            match (collider_1, transform_1, rigidbody_1) {
-                (Some(collider_1), Some(transform_1), Some(rigidbody_1)) => {
+            let (collider_1, transform_1, rigidbody_1, transform_buffer_1) =
+                entities_and_components
+                    .try_get_components_mut::<(Collider, Transform, RigidBody, TransformBuffer)>(
+                        entity_1,
+                    );
+
+            match (collider_1, transform_1, rigidbody_1, transform_buffer_1) {
+                (
+                    Some(collider_1),
+                    Some(transform_1),
+                    Some(rigidbody_1),
+                    Some(transform_buffer_1),
+                ) => {
                     // our use of unsafe here is sound because when we get more components we check
                     // the entity id to make sure it is the not the same as the entity id we are currently iterating over
                     let collider_1_pointer: *mut Collider = collider_1;
@@ -302,64 +324,122 @@ impl System for CollisionSystem {
                     let transform_1 = unsafe { &mut *transform_1_pointer };
                     let rigidbody_1_pointer: *mut RigidBody = rigidbody_1;
                     let rigidbody_1 = unsafe { &mut *rigidbody_1_pointer };
+                    let transform_buffer_1_pointer: *mut TransformBuffer = transform_buffer_1;
+                    let transform_buffer_1 = unsafe { &mut *transform_buffer_1_pointer };
+
+                    // collect the components of the second entity
+                    if entities_and_components
+                        .try_get_component_mut::<TransformBuffer>(entity_2)
+                        .is_none()
+                    {
+                        entities_and_components
+                            .add_component_to(entity_2, TransformBuffer { x: 0.0, y: 0.0 });
+                    }
 
                     match entities_and_components
-                        .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_2)
+                        .try_get_components_mut::<(Collider, Transform, RigidBody, TransformBuffer)>(entity_2)
                     {
-                        (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
+                        (
+                            Some(collider_2),
+                            Some(transform_2),
+                            Some(rigidbody_2),
+                            Some(transform_buffer_2),
+                        ) => {
                             check_and_resolve_collision(
                                 collider_1,
                                 transform_1,
+                                transform_buffer_1,
                                 rigidbody_1,
                                 collider_2,
                                 transform_2,
+                                transform_buffer_2,
                                 rigidbody_2,
                             );
                         }
-                        (Some(collider_2), Some(transform_2), None) => {
+                        (Some(collider_2), Some(transform_2), None, Some(transform_buffer_2)) => {
                             check_and_resolve_collision(
                                 collider_1,
                                 transform_1,
+                                transform_buffer_1,
                                 rigidbody_1,
                                 collider_2,
                                 transform_2,
+                                transform_buffer_2,
                                 &mut rigidbody::RigidBody::default(),
                             );
                         }
                         _ => {}
                     }
                 }
-                (Some(collider_1), Some(transform_1), None) => {
+                (Some(collider_1), Some(transform_1), None, Some(transform_buffer_1)) => {
+                    // our use of unsafe here is sound because when we get more components we check
+                    // the entity id to make sure it is the not the same as the entity id we are currently iterating over
                     let collider_1_pointer: *mut Collider = collider_1;
                     let collider_1 = unsafe { &mut *collider_1_pointer };
                     let transform_1_pointer: *mut Transform = transform_1;
                     let transform_1 = unsafe { &mut *transform_1_pointer };
+                    let transform_buffer_1_pointer: *mut TransformBuffer = transform_buffer_1;
+                    let transform_buffer_1 = unsafe { &mut *transform_buffer_1_pointer };
+
+                    if entities_and_components
+                        .try_get_component_mut::<TransformBuffer>(entity_2)
+                        .is_none()
+                    {
+                        entities_and_components
+                            .add_component_to(entity_2, TransformBuffer { x: 0.0, y: 0.0 });
+                    }
 
                     match entities_and_components
-                        .try_get_components_mut::<(Collider, Transform, RigidBody)>(entity_2)
+                        .try_get_components_mut::<(Collider, Transform, RigidBody, TransformBuffer)>(entity_2)
                     {
-                        (Some(collider_2), Some(transform_2), Some(rigidbody_2)) => {
+                        (Some(collider_2), Some(transform_2), Some(rigidbody_2), Some(transform_buffer_2)) => {
                             check_and_resolve_collision(
                                 collider_1,
                                 transform_1,
+                                transform_buffer_1,
                                 &mut rigidbody::RigidBody::default(),
                                 collider_2,
                                 transform_2,
+                                transform_buffer_2,
                                 rigidbody_2,
                             );
                         }
-                        (Some(collider_2), Some(transform_2), None) => {
+                        (Some(collider_2), Some(transform_2), None, Some(transform_buffer_2)) => {
                             check_and_resolve_collision(
                                 collider_1,
                                 transform_1,
+                                transform_buffer_1,
                                 &mut rigidbody::RigidBody::default(),
                                 collider_2,
                                 transform_2,
+                                transform_buffer_2,
                                 &mut rigidbody::RigidBody::default(),
                             );
                         }
                         _ => {}
                     }
+                }
+                _ => {}
+            }
+        }
+
+        // NOTE: the transform buffer is never removed from the entity,
+        // I think this is more efficient than removing and adding the component every frame
+        // but if the collider is removed from the entity, the transform buffer should be removed as well but isn't for now
+        for entity in entities_and_components
+            .get_entities_with_component::<TransformBuffer>()
+            .cloned()
+            .collect::<Vec<Entity>>()
+        {
+            match entities_and_components
+                .try_get_components_mut::<(Transform, TransformBuffer)>(entity)
+            {
+                (Some(transform), Some(transform_buffer)) => {
+                    transform.x += transform_buffer.x;
+                    transform.y += transform_buffer.y;
+
+                    transform_buffer.x = 0.0;
+                    transform_buffer.y = 0.0;
                 }
                 _ => {}
             }
@@ -370,10 +450,12 @@ impl System for CollisionSystem {
 // there is a problem with this for now, I believe each collision is being resolved twice, once for each entity
 fn check_and_resolve_collision(
     collider_1: &Collider,
-    transform_1: &mut Transform,
+    transform_1: &Transform,
+    transform_buffer_1: &mut TransformBuffer,
     rb_1: &mut RigidBody,
     collider_2: &Collider,
-    transform_2: &mut Transform,
+    transform_2: &Transform,
+    transform_buffer_2: &mut TransformBuffer,
     rb_2: &mut RigidBody,
 ) -> bool {
     if collider_1.properties.is_static && collider_2.properties.is_static {
@@ -408,10 +490,10 @@ fn check_and_resolve_collision(
 
     if is_colliding {
         resolve_collision(
-            transform_1,
+            transform_buffer_1,
             &collider_1.properties,
             rb_1,
-            transform_2,
+            transform_buffer_2,
             &collider_2.properties,
             rb_2,
             force_vec,
@@ -422,10 +504,10 @@ fn check_and_resolve_collision(
 }
 
 fn resolve_collision(
-    transform_1: &mut Transform,
+    transform_buffer_1: &mut TransformBuffer,
     collision_properties_1: &ColliderProperties,
     rb_1: &mut RigidBody,
-    transform_2: &mut Transform,
+    transform_buffer_2: &mut TransformBuffer,
     collision_properties_2: &ColliderProperties,
     rb_2: &mut RigidBody,
     // this will be a vector in which direction the object should move
@@ -440,21 +522,31 @@ fn resolve_collision(
     // for now we are going to push the objects apart by half the depth of the collision
     // this is not a perfect solution, but it is good enough for now, in the future I think it should be proportional to the mass of the objects
     if collision_properties_1.is_static {
-        handle_static_collision(transform_2, rb_2, &[-force_vector[0], -force_vector[1]])
+        handle_static_collision(
+            transform_buffer_2,
+            rb_2,
+            &[-force_vector[0], -force_vector[1]],
+        )
     } else if collision_properties_2.is_static {
-        handle_static_collision(transform_1, rb_1, &force_vector)
+        handle_static_collision(transform_buffer_1, rb_1, &force_vector)
     } else {
-        handle_non_static_collsion(transform_1, rb_1, transform_2, rb_2, &force_vector);
+        handle_non_static_collision(
+            transform_buffer_1,
+            rb_1,
+            transform_buffer_2,
+            rb_2,
+            &force_vector,
+        );
     }
 }
 
 fn handle_static_collision(
-    transform_1: &mut Transform,
+    transform_buffer_1: &mut TransformBuffer,
     rb_1: &mut RigidBody,
     force_vector: &[f64; 2],
 ) {
-    transform_1.x += force_vector[0];
-    transform_1.y += force_vector[1];
+    transform_buffer_1.x += force_vector[0];
+    transform_buffer_1.y += force_vector[1];
 
     // time for some elastic collisions
     // I think I'm using the correct formula here but, correct me if I'm wrong
@@ -479,10 +571,10 @@ fn handle_static_collision(
     rb_1.apply_force(velocity_to_add_1 * rb_1.get_mass());
 }
 
-fn handle_non_static_collsion(
-    transform_1: &mut Transform,
+fn handle_non_static_collision(
+    transform_buffer_1: &mut TransformBuffer,
     rb_1: &mut RigidBody,
-    transform_2: &mut Transform,
+    transform_buffer_2: &mut TransformBuffer,
     rb_2: &mut RigidBody,
     force_vector: &[f64; 2],
 ) {
@@ -492,11 +584,11 @@ fn handle_non_static_collsion(
     let mass_percentage_1 = mass_1 / total_mass;
     let mass_percentage_2 = mass_2 / total_mass;
 
-    transform_1.x += force_vector[0] * mass_percentage_2;
-    transform_1.y += force_vector[1] * mass_percentage_2;
+    transform_buffer_1.x += force_vector[0] * mass_percentage_2;
+    transform_buffer_1.y += force_vector[1] * mass_percentage_2;
 
-    transform_2.x -= force_vector[0] * mass_percentage_1;
-    transform_2.y -= force_vector[1] * mass_percentage_1;
+    transform_buffer_2.x -= force_vector[0] * mass_percentage_1;
+    transform_buffer_2.y -= force_vector[1] * mass_percentage_1;
 
     // time for some elastic collisions
     // I think I'm using the correct formula here but, correct me if I'm wrong
