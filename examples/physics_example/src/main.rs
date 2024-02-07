@@ -55,7 +55,7 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-            RigidBody::new(1.0, Vec2::ZERO, 0.9807),
+            RigidBody::new(25.0, Vec2::ZERO, 0.9807),
             circle_collider,
         ));
 
@@ -70,7 +70,7 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-            RigidBody::new(1.0, Vec2::ZERO, 0.9807 * 2.0),
+            RigidBody::new(25.0, Vec2::ZERO, 0.9807),
             circle_collider,
         ));
 

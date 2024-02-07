@@ -566,7 +566,8 @@ fn handle_static_collision(
     final_velocity_1 = Vec2::new(force_vector[0] as f32, force_vector[1] as f32).normalize();
     final_velocity_1 *= velocity_1_magnitude;
 
-    let velocity_to_add_1 = (final_velocity_1 * rb_1.get_elasticity()) - velocity_1;
+    final_velocity_1 = velocity_1 - rb_1.get_elasticity() * (velocity_1 - final_velocity_1);
+    let velocity_to_add_1 = final_velocity_1 - velocity_1;
 
     rb_1.apply_force(velocity_to_add_1 * rb_1.get_mass());
 }
