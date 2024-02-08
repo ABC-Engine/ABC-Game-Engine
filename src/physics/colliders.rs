@@ -569,6 +569,11 @@ fn handle_static_collision(
     final_velocity_1 = velocity_1 - rb_1.get_elasticity() * (velocity_1 - final_velocity_1);
     let velocity_to_add_1 = final_velocity_1 - velocity_1;
 
+    if final_velocity_1.length() > velocity_1.length() {
+        let velocity_gained = final_velocity_1 - velocity_1;
+        panic!("The final velocity is greater than the initial velocity in a static collision, velocity gained: {:?}", velocity_gained);
+    }
+
     rb_1.apply_force(velocity_to_add_1 * rb_1.get_mass());
 }
 
@@ -599,13 +604,12 @@ fn handle_non_static_collision(
     let momentum_1 = velocity_1 * mass_1 as f32;
     let momentum_2 = velocity_2 * mass_2 as f32;
 
-    let mut final_velocity_1 =
-        (mass_2 as f32 * (velocity_2 - velocity_1) + momentum_1 + momentum_2)
-            / (mass_1 + mass_2) as f32;
+    // https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
+    let mut final_velocity_1 = (velocity_1 * ((mass_1 - mass_2) / total_mass) as f32)
+        + (((2.0 * mass_2) / total_mass) as f32 * velocity_2);
 
-    let mut final_velocity_2 =
-        (mass_1 as f32 * (velocity_1 - velocity_2) + momentum_1 + momentum_2)
-            / (mass_1 + mass_2) as f32;
+    let mut final_velocity_2 = (velocity_2 * ((mass_2 - mass_1) / total_mass) as f32)
+        + (((2.0 * mass_1) / total_mass) as f32 * velocity_1);
 
     // now lets adapt the direction of the velocity
     // we are going to blend the direction of the velocity and the direction of the force vector based on the momentum of the object
@@ -613,14 +617,12 @@ fn handle_non_static_collision(
     // don't gain any horizontal velocity
 
     let velocity_1_magnitude = final_velocity_1.length();
-    let velocity_2_magnitude = final_velocity_1.length();
+    let velocity_2_magnitude = final_velocity_2.length();
     let momentum_1 = velocity_1_magnitude * mass_1 as f32;
     let momentum_2 = velocity_2_magnitude * mass_2 as f32;
     let momentum_percentage_1 = momentum_1 / (momentum_1 + momentum_2);
     let momentum_percentage_2 = momentum_2 / (momentum_1 + momentum_2);
 
-    // lerp the velocity and the force vector with t = momentum_percentage
-    // first we need to normalize both vectors
     let mut force_vector = Vec2::new(force_vector[0] as f32, force_vector[1] as f32);
     force_vector = force_vector.normalize();
 
@@ -628,6 +630,8 @@ fn handle_non_static_collision(
     final_velocity_2 = final_velocity_2.normalize();
 
     // the lower the momentum percentage, the more the velocity will be changed
+    // lerp the velocity and the force vector with t = momentum_percentage
+    // first we need to normalize both vectors
     final_velocity_1 =
         (1.0 - momentum_percentage_1) * force_vector + momentum_percentage_1 * final_velocity_1;
     final_velocity_1 = final_velocity_1.normalize();
