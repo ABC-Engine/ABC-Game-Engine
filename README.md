@@ -69,7 +69,7 @@ fn main() {
 
         // render the scene
         renderer.render(
-            &scene.game_engine.entities_and_components,
+            &mut scene.game_engine.entities_and_components,
             &scene.scene_params,
         );
     }
