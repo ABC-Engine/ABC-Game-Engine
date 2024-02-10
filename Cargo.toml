@@ -5,7 +5,7 @@ workspace = { members = [
     "examples/pixel_scaling_example",
     "examples/camera_example",
     "examples/mask_example",
-    "examples/physics_example",
+    "examples/physics_example", "examples/platformer_example",
 ] }
 [package]
 name = "ABC_Game_Engine"

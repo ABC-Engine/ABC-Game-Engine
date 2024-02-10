@@ -601,8 +601,8 @@ fn handle_non_static_collision(
     let velocity_1 = rb_1.get_velocity();
     let velocity_2 = rb_2.get_velocity();
 
-    let momentum_1 = velocity_1 * mass_1 as f32;
-    let momentum_2 = velocity_2 * mass_2 as f32;
+    // let momentum_1 = velocity_1 * mass_1 as f32;
+    // let momentum_2 = velocity_2 * mass_2 as f32;
 
     // https://phys.libretexts.org/Bookshelves/University_Physics/Mechanics_and_Relativity_(Idema)/04%3A_Momentum/4.07%3A_Totally_Elastic_Collisions
     let mut final_velocity_1 = (velocity_1 * ((mass_1 - mass_2) / total_mass) as f32)
