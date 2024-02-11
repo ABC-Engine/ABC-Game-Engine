@@ -10,27 +10,20 @@ struct Player {}
 
 struct PlayerController {
     speed: f32,
+    jump_force: f32,
 }
 
 impl System for PlayerController {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
-        let delta_time: f64;
-        let mut normalized_dir = [0.0 as f64; 2];
+        let delta_time: f32;
+        let mut normalized_dir = [0.0 as f32; 2];
         {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("Failed to get DeltaTime resource")
-                .delta_time;
+                .delta_time as f32;
 
             let input = entities_and_components.get_resource::<Input>().unwrap();
-
-            if input.is_key_pressed(Vk::W) {
-                normalized_dir[1] -= 1.0;
-            }
-
-            if input.is_key_pressed(Vk::S) {
-                normalized_dir[1] += 1.0;
-            }
 
             if input.is_key_pressed(Vk::A) {
                 normalized_dir[0] -= 1.0;
@@ -40,11 +33,8 @@ impl System for PlayerController {
                 normalized_dir[0] += 1.0;
             }
 
-            // normalize the direction
-            let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
-            if magnitude != 0.0 && magnitude != 1.0 {
-                normalized_dir[0] /= magnitude;
-                normalized_dir[1] /= magnitude;
+            if input.is_key_pressed(Vk::Space) {
+                normalized_dir[1] -= 1.0;
             }
         }
 
@@ -59,8 +49,8 @@ impl System for PlayerController {
             entities_and_components.try_get_components_mut::<(Player, Transform, RigidBody)>(player)
         {
             rigid_body.apply_force(Vec2::new(
-                normalized_dir[0] as f32 * self.speed * delta_time as f32,
-                normalized_dir[1] as f32 * self.speed * delta_time as f32,
+                normalized_dir[0] * self.speed * delta_time,
+                normalized_dir[1] * self.jump_force * delta_time,
             ));
         }
     }
@@ -112,7 +102,7 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-            RigidBody::new(25.0, Vec2::ZERO, 0.9807),
+            RigidBody::new(25.0, Vec2::ZERO, 8.0),
             circle_collider,
             Player {},
         ));
@@ -146,9 +136,10 @@ fn main() {
         ));
     }
 
-    scene
-        .game_engine
-        .add_system(Box::new(PlayerController { speed: 100.0 }));
+    scene.game_engine.add_system(Box::new(PlayerController {
+        speed: 100.0,
+        jump_force: 1000.0,
+    }));
     physics::add_default_physics_systems(&mut scene);
 
     loop {
