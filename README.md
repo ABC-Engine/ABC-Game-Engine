@@ -1,7 +1,10 @@
+![s2Kkdcv](https://github.com/ABC-Engine/ABC-Game-Engine/assets/76850177/9f511895-ed68-498e-bd8b-8741ae10cfa2)
+
 # Under Construction 🚧
 This project is still under construction and is in the pre-release stage. Significant changes will be made that might break things. We apologize for the inconvenience.
-# Console-Renderer
-A unique renderer that displays through ASCII characters in the terminal
+# Console-Renderer 
+A unique renderer that displays through ASCII characters in the terminal. 
+(This is subject to change and this soon will be a legacy feature, the main renderer will soon be [Lumenpyx](https://github.com/ABC-Engine/lumenpyx)) 
 ## OS Support
 Right now only Windows is supported, if you are interested in adding support for other operating systems, make an issue.
 # Getting Started
