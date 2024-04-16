@@ -8,17 +8,17 @@ pub use audio_stream::*;
 
 pub(crate) fn add_default_resources(scene: &mut Scene) {
     scene
-        .game_engine
+        .world
         .entities_and_components
         .add_resource(Input::new());
 
     scene
-        .game_engine
+        .world
         .entities_and_components
         .add_resource(DeltaTime::new());
 
     scene
-        .game_engine
+        .world
         .entities_and_components
         .add_resource(AudioHandle::new());
 }

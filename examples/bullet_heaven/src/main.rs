@@ -719,7 +719,7 @@ fn main() {
     let player_object: Entity;
     let camera_object: Entity;
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         scene.scene_params.set_background_color(Color {
             r: 100,
@@ -791,68 +791,62 @@ fn main() {
 
         // probably not proper form but for now it is more efficient than searching for every object with a component
         //  this should change in the future.
-        scene.game_engine.add_system(Box::new(PlayerMovementSystem {
+        scene.world.add_system(PlayerMovementSystem {
             player_entity: player_object,
             idle_animations,
             walk_animations,
             direction: 0,
             is_idle: true,
-        }));
-        scene.game_engine.add_system(Box::new(EnemyMovementSystem {
+        });
+        scene.world.add_system(EnemyMovementSystem {
             player_entity: player_object,
             enemy_speed: 10.0,
-        }));
-        scene.game_engine.add_system(Box::new(EnemySpawnerSystem {
+        });
+        scene.world.add_system(EnemySpawnerSystem {
             camera_entity: camera_object,
             last_spawn: Instant::now(),
             spawn_rate: 2.0,
             distance_from_camera_min: 100.0,
             distance_from_camera_max: 200.0,
-        }));
-        scene.game_engine.add_system(Box::new(PlayerShootingSystem {
+        });
+        scene.world.add_system(PlayerShootingSystem {
             player_entity: player_object,
             last_shot: Instant::now(),
-        }));
-        scene.game_engine.add_system(Box::new(BulletMovementSystem {
+        });
+        scene.world.add_system(BulletMovementSystem {
             bullet_speed: 100.0,
-        }));
-        scene
-            .game_engine
-            .add_system(Box::new(BulletCollisionSystem {}));
-        scene.game_engine.add_system(Box::new(XpOrbMovementSystem {
+        });
+        scene.world.add_system(BulletCollisionSystem {});
+        scene.world.add_system(XpOrbMovementSystem {
             player_entity: player_object,
             orb_speed: 50.0,
-        }));
-        scene.game_engine.add_system(Box::new(XpOrbCollisionSystem {
+        });
+        scene.world.add_system(XpOrbCollisionSystem {
             player_entity: player_object,
-        }));
-        scene
-            .game_engine
-            .add_system(Box::new(PlayerUpgradingSystem {
-                player_entity: player_object,
-                next_upgrade: 10,
-            }));
-        scene
-            .game_engine
-            .add_system(Box::new(EnemyPlayerCollisionSystem {
-                player_entity: player_object,
-            }));
-        scene.game_engine.add_system(Box::new(PlayerDeathSystem {
+        });
+        scene.world.add_system(PlayerUpgradingSystem {
             player_entity: player_object,
-        }));
-        scene.game_engine.add_system(Box::new(CameraMovementSystem {
+            next_upgrade: 10,
+        });
+        scene.world.add_system(EnemyPlayerCollisionSystem {
+            player_entity: player_object,
+        });
+        scene.world.add_system(PlayerDeathSystem {
+            player_entity: player_object,
+        });
+        scene.world.add_system(CameraMovementSystem {
             player_entity: player_object,
             camera_entity: camera_object,
             camera_speed: 2.0,
-        }));
+        });
         // can't be added until z ordering is implemented
-        scene.game_engine.add_system(Box::new(BackgroundSystem {
+        scene.world.add_system(BackgroundSystem {
             camera_entity: camera_object,
             background_tiles: vec![],
             background_sprite: Sprite::Image(Image {
                 texture: load_texture("Sample_Images/Grass_Background.png"),
             }),
-        }));
+        });
     }
 
     let xp_bar_entity: Entity;
@@ -943,7 +937,7 @@ fn main() {
             xp_bar_mask,
         ));
 
-        xp_bar_entity = scene.game_engine.entities_and_components.add_entity_with((
+        xp_bar_entity = scene.world.entities_and_components.add_entity_with((
             Transform {
                 x: 0.0,
                 y: 0.0,
@@ -957,17 +951,17 @@ fn main() {
         ));
     }
     {
-        scene.game_engine.add_system(Box::new(xp::XpBarSystem {
+        scene.world.add_system(xp::XpBarSystem {
             player_entity: player_object,
             xp_bar_entity: xp_bar_entity,
             camera_entity: camera_object,
-        }));
+        });
     }
 
     // start the main game music
     {
         let audio_handle = scene
-            .game_engine
+            .world
             .entities_and_components
             .get_resource::<AudioHandle>()
             .expect("Failed to get audio handle");
@@ -978,11 +972,11 @@ fn main() {
 
     loop {
         thread::sleep(std::time::Duration::from_millis(20));
-        scene.game_engine.run();
+        scene.world.run();
 
         // should be implemented as a system later
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

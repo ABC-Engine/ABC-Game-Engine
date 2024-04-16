@@ -10,7 +10,7 @@ pub use load_texture::*;
 use renderer::*;
 pub use resources::*;
 pub use resources::{delta_time, input};
-pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, GameEngine, System};
+pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, System, World};
 pub mod camera;
 pub mod physics;
 pub mod renderer;
@@ -134,14 +134,14 @@ impl SceneParams {
 
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
-    pub game_engine: GameEngine,
+    pub world: World,
     pub scene_params: SceneParams,
 }
 
 impl Scene {
     pub fn new() -> Scene {
         let mut scene = Scene {
-            game_engine: GameEngine::new(),
+            world: World::new(),
             scene_params: SceneParams {
                 background_color: Color {
                     r: 0,

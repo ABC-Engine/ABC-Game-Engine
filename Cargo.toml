@@ -5,7 +5,8 @@ workspace = { members = [
     "examples/pixel_scaling_example",
     "examples/camera_example",
     "examples/mask_example",
-    "examples/physics_example", "examples/platformer_example",
+    "examples/physics_example",
+    "examples/platformer_example",
 ] }
 [package]
 name = "ABC_Game_Engine"
@@ -16,13 +17,13 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/ABC-Engine/ABC-Game-Engine"
 
 [dependencies]
-ABC-ECS = { path = "../ABC-ECS" }
 colored = "2.0.4"
 crossterm = "0.27.0"
 dioxus-debug-cell = "0.1.1"
 glam = "0.25.0"
-image = "0.24.7"
+image = "0.25.1"
 pixel-canvas = "0.2.3"
 rand = "0.8.5"
 rodio = "0.17.3"
 winput = "0.2.5"
+ABC-ECS = { path = "../ABC-ECS" }
