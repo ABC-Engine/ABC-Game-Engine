@@ -55,7 +55,7 @@ fn main() {
     let mut renderer = Renderer::new();
     renderer.set_stretch(1.0);
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
         let camera = Camera::new(160, 160);
         entities_and_components.add_entity_with((camera, Transform::default()));
 
@@ -78,15 +78,13 @@ fn main() {
     }
 
     {
-        scene
-            .game_engine
-            .add_system(Box::new(CameraMovementSystem {}));
+        scene.world.add_system(CameraMovementSystem {});
     }
 
     loop {
-        scene.game_engine.run();
+        scene.world.run();
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

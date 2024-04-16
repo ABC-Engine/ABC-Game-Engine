@@ -28,7 +28,7 @@ fn main() {
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         scene.scene_params.set_background_color(Color {
             r: 100,
@@ -61,13 +61,13 @@ fn main() {
         entities_and_components.add_entity_with((camera, Transform::default()));
     }
 
-    scene.game_engine.add_system(Box::new(SpinSystem {}));
+    scene.world.add_system(SpinSystem {});
 
     loop {
-        scene.game_engine.run();
+        scene.world.run();
         // should be implemented as a system later
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

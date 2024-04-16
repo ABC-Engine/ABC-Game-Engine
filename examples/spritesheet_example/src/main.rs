@@ -123,7 +123,7 @@ fn main() {
     let player_entity: Entity;
     let camera_entity: Entity;
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         scene.scene_params.set_background_color(Color {
             r: 125,
@@ -158,21 +158,21 @@ fn main() {
         let idle_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_idle.png");
         let walk_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_walk.png");
 
-        scene.game_engine.add_system(Box::new(MovementSystem {
+        scene.world.add_system(MovementSystem {
             camera_entity,
             player: player_entity,
             idle_animations,
             walk_animations,
             direction: 0,
             is_idle: true,
-        }));
+        });
     }
 
     loop {
-        scene.game_engine.run();
+        scene.world.run();
         // should be implemented as a system later
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

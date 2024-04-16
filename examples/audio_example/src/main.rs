@@ -2,7 +2,7 @@ use ABC_Game_Engine::*;
 
 fn main() {
     let mut scene = Scene::new();
-    let entities_and_components = &mut scene.game_engine.entities_and_components;
+    let entities_and_components = &mut scene.world.entities_and_components;
     // play the "main_music" audio file
     let audio_handle = entities_and_components
         .get_resource::<AudioHandle>()

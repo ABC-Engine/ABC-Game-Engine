@@ -14,7 +14,7 @@ fn main() {
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         let camera = Camera::new(160, 160);
 
@@ -126,18 +126,18 @@ fn main() {
     // TODO: implement rigidbody collision response
     let mut last_time_ball_was_spawned = Instant::now();
     loop {
-        scene.game_engine.run();
+        scene.world.run();
         // add random balls
         if last_time_ball_was_spawned.elapsed() > Duration::from_secs_f32(0.5) {
             last_time_ball_was_spawned = Instant::now();
             // spawn at a random x position
             spawn_rb_ball(
                 rand::thread_rng().gen_range(-80.0..80.0),
-                &mut scene.game_engine.entities_and_components,
+                &mut scene.world.entities_and_components,
             );
         }
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

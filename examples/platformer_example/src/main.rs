@@ -61,7 +61,7 @@ fn main() {
     renderer.set_stretch(1.0);
     let mut scene = Scene::new();
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         let camera = Camera::new(160, 160);
 
@@ -136,17 +136,17 @@ fn main() {
         ));
     }
 
-    scene.game_engine.add_system(Box::new(PlayerController {
+    scene.world.add_system(PlayerController {
         speed: 100.0,
         jump_force: 1000.0,
-    }));
+    });
     physics::add_default_physics_systems(&mut scene);
 
     loop {
-        scene.game_engine.run();
+        scene.world.run();
 
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }

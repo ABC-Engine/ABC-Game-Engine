@@ -58,7 +58,7 @@ fn main() {
 
     let mask_entity: Entity;
     {
-        let entities_and_components = &mut scene.game_engine.entities_and_components;
+        let entities_and_components = &mut scene.world.entities_and_components;
 
         let camera = Camera::new(WINDOW_DIMS.0, WINDOW_DIMS.1);
 
@@ -153,15 +153,15 @@ fn main() {
         mask_entity = bar_filling_object.clone();
     }
 
-    scene.game_engine.add_system(Box::new(MovementSystem {
+    scene.world.add_system(MovementSystem {
         player: mask_entity,
-    }));
+    });
 
     loop {
-        scene.game_engine.run();
+        scene.world.run();
         // should be implemented as a system later
         renderer.render(
-            &mut scene.game_engine.entities_and_components,
+            &mut scene.world.entities_and_components,
             &scene.scene_params,
         );
     }
