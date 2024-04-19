@@ -25,4 +25,4 @@ pixel-canvas = "0.2.3"
 rand = "0.8.5"
 rodio = "0.17.3"
 winput = "0.2.5"
-ABC-ECS = { path = "../ABC-ECS" }
+ABC-ECS = "0.2.0"
