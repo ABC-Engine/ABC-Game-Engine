@@ -2,6 +2,8 @@
 
 # Under Construction 🚧
 This project is still under construction and is in the pre-release stage. Significant changes will be made that might break things. We apologize for the inconvenience.
+# Ease of use
+The idea for this project is that it would be so intuitive to use that it would be feasible to learn rust through this game engine. Learning is often made better when you can make something easily visible rather than manipulating data and we want to provide that opportunity in rust.
 # Console-Renderer 
 A unique renderer that displays through ASCII characters in the terminal. 
 (This is subject to change and this soon will be a legacy feature, the main renderer will soon be [Lumenpyx](https://github.com/ABC-Engine/lumenpyx)) 
