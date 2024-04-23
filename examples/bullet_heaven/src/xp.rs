@@ -1,6 +1,3 @@
-use crate::renderer::mask::Mask;
-use ABC_Game_Engine::renderer::Circle;
-
 use crate::*;
 struct XpOrb {
     pub(crate) xp: u32,

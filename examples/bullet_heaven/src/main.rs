@@ -4,12 +4,14 @@ use core::f64;
 use rand::Rng;
 use std::thread;
 use std::{time::Instant, vec};
-use ABC_Game_Engine::renderer::{Animation, Circle, Image, Rectangle, Renderer, Sprite};
+use ABC_Game_Engine::Transform;
 use ABC_Game_Engine::*;
-use ABC_Game_Engine::{camera::Camera, Transform};
 mod xp;
+use console_renderer::camera::Camera;
+use console_renderer::mask::Mask;
+use console_renderer::mask::MaskShape;
+use console_renderer::*;
 use xp::*;
-use ABC_Game_Engine::renderer::mask::{Mask, MaskShape};
 
 const WINDOW_DIMS: (u32, u32) = (160, 160);
 const PLAYER_HIT_BOX_RADIUS: f64 = 5.0;
