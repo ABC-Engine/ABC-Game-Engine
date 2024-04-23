@@ -20,14 +20,14 @@ fn main() {
 
         entities_and_components.add_entity_with((camera, Transform::default()));
 
-        scene.scene_params.set_background_color(Color {
+        renderer.set_scene_params(renderer.get_scene_params().with_background_color(Color {
             r: 100,
             g: 0,
             b: 0,
             a: 0.0,
-        });
+        }));
 
-        scene.scene_params.set_random_chars(true);
+        renderer.set_scene_params(renderer.get_scene_params().with_random_chars(true));
 
         let ball = Circle {
             radius: 5.0,
@@ -136,10 +136,7 @@ fn main() {
                 &mut scene.world.entities_and_components,
             );
         }
-        renderer.render(
-            &mut scene.world.entities_and_components,
-            &scene.scene_params,
-        );
+        renderer.render(&mut scene.world.entities_and_components);
     }
 }
 

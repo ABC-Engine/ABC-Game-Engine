@@ -11,7 +11,7 @@ use std::{
     time::{Duration, Instant},
     vec,
 };
-use ABC_ECS::{EntitiesAndComponents, Entity, TryComponentsRef};
+use ABC_ECS::{EntitiesAndComponents, Entity, System, TryComponentsRef};
 
 use self::mask::Mask;
 pub mod ascii_renderer;
@@ -80,11 +80,6 @@ impl From<Image> for Sprite {
     }
 }
 
-pub enum RendererType {
-    Ascii,
-    Canvas,
-}
-
 struct RendererParams {
     // width and height are determined by the camera,
     // but needs to be on the renderer for buffer size
@@ -92,12 +87,12 @@ struct RendererParams {
     height: u32,
     stretch: f32,
     pixel_scale: u16,
-    renderer_type: RendererType,
 }
 
 /// Renderer is responsible for rendering the scene
 pub struct Renderer {
     renderer_params: RendererParams,
+    scene_params: SceneParams,
     // used for diffing
     // will be empty if no previous frame
     last_pixel_grid: Vec<Vec<Color>>,
@@ -122,7 +117,16 @@ impl Renderer {
                 height: 160,
                 stretch: 2.3,
                 pixel_scale: 1,
-                renderer_type: RendererType::Ascii,
+            },
+            scene_params: SceneParams {
+                background_color: Color {
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                    a: 1.0,
+                },
+                is_random_chars: false,
+                character: '=',
             },
             last_pixel_grid: vec![],
             handle,
@@ -148,12 +152,21 @@ impl Renderer {
         .expect("Error: failed to set terminal size");
     }
 
-    pub fn set_renderer_type(&mut self, renderer_type: RendererType) {
-        self.renderer_params.renderer_type = renderer_type;
+    pub fn set_scene_params(&mut self, scene_params: SceneParams) {
+        self.scene_params = scene_params;
+    }
+
+    pub fn get_scene_params(&self) -> SceneParams {
+        self.scene_params
     }
 
     ///  Renders the scene
-    pub fn render(&mut self, scene: &mut EntitiesAndComponents, scene_params: &SceneParams) {
+    pub fn render(&mut self, scene: &mut EntitiesAndComponents) {
+        let scene_params;
+        {
+            scene_params = self.scene_params.clone();
+        }
+
         let mut pixel_grid =
             vec![
                 vec![scene_params.background_color; self.renderer_params.width as usize];
@@ -231,14 +244,7 @@ impl Renderer {
             }
         }
 
-        match self.renderer_params.renderer_type {
-            RendererType::Ascii => {
-                ascii_renderer::render_pixel_grid(self, &pixel_grid, scene_params)
-            }
-            RendererType::Canvas => {
-                canvas_renderer::render_pixel_grid(self, &pixel_grid, scene_params)
-            }
-        }
+        ascii_renderer::render_pixel_grid(self, &pixel_grid, &scene_params);
     }
 
     // not thread safe

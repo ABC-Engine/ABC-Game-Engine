@@ -125,15 +125,15 @@ fn main() {
     {
         let entities_and_components = &mut scene.world.entities_and_components;
 
-        scene.scene_params.set_background_color(Color {
+        renderer.set_scene_params(renderer.get_scene_params().with_background_color(Color {
             r: 125,
             g: 125,
             b: 125,
             a: 1.0,
-        });
+        }));
 
-        scene.scene_params.set_random_chars(false);
-        scene.scene_params.set_character('█');
+        renderer.set_scene_params(renderer.get_scene_params().with_random_chars(false));
+        renderer.set_scene_params(renderer.get_scene_params().with_character('█'));
 
         let idle_animations = load_spritesheet(4, 4, 100, "Animations/sprite_sheet_idle.png");
 
@@ -171,9 +171,6 @@ fn main() {
     loop {
         scene.world.run();
         // should be implemented as a system later
-        renderer.render(
-            &mut scene.world.entities_and_components,
-            &scene.scene_params,
-        );
+        renderer.render(&mut scene.world.entities_and_components);
     }
 }

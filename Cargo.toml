@@ -1,13 +1,16 @@
-workspace = { members = [
-    "examples/spritesheet_example",
-    "examples/bullet_heaven",
+[workspace]
+members = [
     "examples/audio_example",
-    "examples/pixel_scaling_example",
+    "examples/bullet_heaven",
     "examples/camera_example",
     "examples/mask_example",
     "examples/physics_example",
+    "examples/pixel_scaling_example",
     "examples/platformer_example",
-] }
+    "examples/render_example",
+    "examples/spritesheet_example",
+]
+
 [package]
 name = "ABC_Game_Engine"
 version = "0.1.0"

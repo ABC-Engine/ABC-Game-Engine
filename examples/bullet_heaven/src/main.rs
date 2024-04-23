@@ -4,7 +4,6 @@ use core::f64;
 use rand::Rng;
 use std::thread;
 use std::{time::Instant, vec};
-use ABC_Game_Engine::renderer::RendererType;
 use ABC_Game_Engine::renderer::{Animation, Circle, Image, Rectangle, Renderer, Sprite};
 use ABC_Game_Engine::*;
 use ABC_Game_Engine::{camera::Camera, Transform};
@@ -721,22 +720,21 @@ fn main() {
     {
         let entities_and_components = &mut scene.world.entities_and_components;
 
-        scene.scene_params.set_background_color(Color {
-            r: 100,
+        renderer.set_scene_params(renderer.get_scene_params().with_background_color(Color {
+            r: 0,
             g: 0,
             b: 0,
-            a: 0.0,
-        });
+            a: 1.0,
+        }));
 
         match PIXEL_MODE {
             true => {
                 // i think that this renders slower, but it looks better
                 // i guess this isn't a standard character?
-                scene.scene_params.set_character('█');
+                renderer.set_scene_params(renderer.get_scene_params().with_character('█'));
             }
             false => {
-                //scene.scene_params.set_random_chars(true);
-                scene.scene_params.set_character('0');
+                renderer.set_scene_params(renderer.get_scene_params().with_character('0'));
             }
         }
 
@@ -975,9 +973,6 @@ fn main() {
         scene.world.run();
 
         // should be implemented as a system later
-        renderer.render(
-            &mut scene.world.entities_and_components,
-            &scene.scene_params,
-        );
+        renderer.render(&mut scene.world.entities_and_components);
     }
 }

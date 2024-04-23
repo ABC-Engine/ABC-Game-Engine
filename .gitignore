@@ -1,6 +1,13 @@
 /target
-/examples/render_example/target
-/examples/tetris/target
+/examples/audio_example/target
 /examples/bullet_heaven/target
+/examples/camera_example/target
+/examples/mask_example/target
+/examples/physics_example/target
+/examples/pixel_scaling_example/target
+/examples/platformer_example/target
+/examples/render_example/target
+/examples/spritesheet_example/target
 
 *.aseprite
+.vscode/settings.json

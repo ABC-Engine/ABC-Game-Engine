@@ -3,7 +3,7 @@
 mod resources;
 mod shape_renderer;
 mod test;
-pub use shape_renderer::*;
+use shape_renderer::*;
 mod load_texture;
 pub use crossterm::event::KeyCode;
 pub use load_texture::*;
@@ -96,6 +96,7 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
 }
 
 /// SceneParams is a struct that holds the background color, if the characters are random, and the character that will be displayed otherwise
+#[derive(Clone, Copy)]
 pub struct SceneParams {
     background_color: Color,
     is_random_chars: bool,
@@ -121,37 +122,44 @@ impl SceneParams {
         self.background_color = color;
     }
 
+    /// the background color of the scene
+    pub fn with_background_color(mut self, color: Color) -> Self {
+        self.set_background_color(color);
+        self
+    }
+
     /// if the characters are random, or if they are all the same character as specified by the set_character function
     pub fn set_random_chars(&mut self, is_random_chars: bool) {
         self.is_random_chars = is_random_chars;
+    }
+
+    /// if the characters are random, or if they are all the same character as specified by the set_character function
+    pub fn with_random_chars(mut self, is_random_chars: bool) -> Self {
+        self.set_random_chars(is_random_chars);
+        self
     }
 
     /// the character that will be displayed if is_random_chars is false
     pub fn set_character(&mut self, character: char) {
         self.character = character;
     }
+
+    /// the character that will be displayed if is_random_chars is false
+    pub fn with_character(mut self, character: char) -> Self {
+        self.set_character(character);
+        self
+    }
 }
 
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
     pub world: World,
-    pub scene_params: SceneParams,
 }
 
 impl Scene {
     pub fn new() -> Scene {
         let mut scene = Scene {
             world: World::new(),
-            scene_params: SceneParams {
-                background_color: Color {
-                    r: 0,
-                    g: 0,
-                    b: 0,
-                    a: 1.0,
-                },
-                is_random_chars: false,
-                character: '=',
-            },
         };
 
         add_default_resources(&mut scene);

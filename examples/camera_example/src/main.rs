@@ -83,9 +83,6 @@ fn main() {
 
     loop {
         scene.world.run();
-        renderer.render(
-            &mut scene.world.entities_and_components,
-            &scene.scene_params,
-        );
+        renderer.render(&mut scene.world.entities_and_components);
     }
 }

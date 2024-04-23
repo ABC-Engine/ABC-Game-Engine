@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ABC_Game_Engine = { path = "../../../ABC-Engine" }
+ABC_Game_Engine = { path = "../../" }
 rand = "0.8.5"
