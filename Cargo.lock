@@ -27,18 +27,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ABC_Game_Engine"
-version = "0.1.0"
-source = "git+https://github.com/ABC-Engine/ABC-Game-Engine#8c8214f07aceb172b56d10fd1c5dce9cc248cc73"
-dependencies = [
- "ABC-ECS",
- "glam",
- "rand",
- "rodio",
- "winput",
-]
-
-[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -120,7 +108,7 @@ checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 name = "audio_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
 ]
 
 [[package]]
@@ -206,7 +194,7 @@ checksum = "41bfbdb21256b87a8b5e80fab81a8eed158178e812fd7ba451907518b2742f16"
 name = "bullet_heaven"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
  "console_renderer",
  "rand",
 ]
@@ -239,7 +227,8 @@ checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 name = "camera_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]
@@ -331,7 +320,7 @@ name = "console_renderer"
 version = "0.1.0"
 source = "git+https://github.com/ABC-Engine/console_renderer#3c154f9c826555d0673a871e5041c4eda8ae3bf5"
 dependencies = [
- "ABC_Game_Engine 0.1.0 (git+https://github.com/ABC-Engine/ABC-Game-Engine)",
+ "ABC_Game_Engine",
  "colored",
  "crossterm",
  "image",
@@ -814,7 +803,8 @@ dependencies = [
 name = "mask_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]
@@ -1097,18 +1087,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
-name = "physics_example"
-version = "0.1.0"
-dependencies = [
- "ABC_Game_Engine 0.1.0",
- "rand",
-]
-
-[[package]]
 name = "pixel_scaling_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]
@@ -1121,7 +1104,8 @@ checksum = "69d3587f8a9e599cc7ec2c00e331f71c4e69a5f9a4b8a6efd5b07466b9736f9a"
 name = "platformer_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]
@@ -1353,7 +1337,8 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 name = "render_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]
@@ -1507,7 +1492,8 @@ dependencies = [
 name = "spritesheet_example"
 version = "0.1.0"
 dependencies = [
- "ABC_Game_Engine 0.1.0",
+ "ABC_Game_Engine",
+ "console_renderer",
 ]
 
 [[package]]

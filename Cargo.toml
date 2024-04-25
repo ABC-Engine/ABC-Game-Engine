@@ -4,7 +4,6 @@ members = [
     "examples/bullet_heaven",
     "examples/camera_example",
     "examples/mask_example",
-    "examples/physics_example",
     "examples/pixel_scaling_example",
     "examples/platformer_example",
     "examples/render_example",
@@ -25,3 +24,6 @@ rand = "0.8.5"
 rodio = "0.17.3"
 winput = "0.2.5"
 ABC-ECS = "0.2.0"
+
+[patch.'https://github.com/ABC-Engine/ABC-Game-Engine']
+ABC_Game_Engine = { path = "." }

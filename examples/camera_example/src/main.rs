@@ -1,7 +1,9 @@
-use ABC_Game_Engine::renderer::Renderer;
-use ABC_Game_Engine::renderer::{Image, Sprite};
+use console_renderer::camera::Camera;
+use console_renderer::mask::Mask;
+use console_renderer::mask::MaskShape;
+use console_renderer::*;
+use ABC_Game_Engine::Transform;
 use ABC_Game_Engine::*;
-use ABC_Game_Engine::{camera::Camera, Transform};
 
 struct CameraMovementSystem {}
 

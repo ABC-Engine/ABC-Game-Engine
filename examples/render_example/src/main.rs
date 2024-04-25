@@ -1,8 +1,9 @@
 // this highlights some major issues with the current renderer
-use ABC_Game_Engine::camera::Camera;
-use ABC_Game_Engine::renderer::Image;
-use ABC_Game_Engine::renderer::Renderer;
-use ABC_Game_Engine::renderer::Sprite;
+use console_renderer::camera::Camera;
+use console_renderer::load_texture;
+use console_renderer::Color;
+use console_renderer::SceneParams;
+use console_renderer::{Image, Renderer, Sprite};
 use ABC_Game_Engine::*;
 
 const WINDOW_DIMS: (u32, u32) = (160, 80);

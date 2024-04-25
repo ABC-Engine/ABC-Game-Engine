@@ -1,8 +1,13 @@
 // this highlights some major issues with the current renderer
-use ABC_Game_Engine::camera::Camera;
-use ABC_Game_Engine::renderer::mask::{Mask, MaskShape};
+use console_renderer::camera::Camera;
+use console_renderer::load_texture;
+use console_renderer::mask::{Mask, MaskShape};
+use console_renderer::Color;
+use console_renderer::Renderer;
+use console_renderer::Sprite;
+use console_renderer::{Image, Rectangle};
+use ABC_Game_Engine::Transform;
 use ABC_Game_Engine::*;
-use ABC_Game_Engine::{renderer::*, Transform};
 
 const WINDOW_DIMS: (u32, u32) = (160, 160);
 

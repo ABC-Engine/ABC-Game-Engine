@@ -1,9 +1,10 @@
-use ABC_Game_Engine::camera::Camera;
+use console_renderer::camera::Camera;
+use console_renderer::Color;
+use console_renderer::{Circle, Rectangle, Renderer, Sprite};
 use ABC_Game_Engine::physics::colliders::{
     BoxCollider, CircleCollider, Collider, ColliderProperties,
 };
 use ABC_Game_Engine::physics::rigidbody::{RigidBody, Vec2};
-use ABC_Game_Engine::renderer::{Circle, Rectangle, Renderer, Sprite};
 use ABC_Game_Engine::*;
 
 struct Player {}
