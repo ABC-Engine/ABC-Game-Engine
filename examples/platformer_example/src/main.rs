@@ -26,15 +26,15 @@ impl System for PlayerController {
 
             let input = entities_and_components.get_resource::<Input>().unwrap();
 
-            if input.is_key_pressed(Vk::A) {
+            if input.get_key_state(KeyCode::A) == KeyState::Held {
                 normalized_dir[0] -= 1.0;
             }
 
-            if input.is_key_pressed(Vk::D) {
+            if input.get_key_state(KeyCode::D) == KeyState::Held {
                 normalized_dir[0] += 1.0;
             }
 
-            if input.is_key_pressed(Vk::Space) {
+            if input.get_key_state(KeyCode::Space) == KeyState::Pressed {
                 normalized_dir[1] -= 1.0;
             }
         }
