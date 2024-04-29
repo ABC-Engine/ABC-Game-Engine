@@ -23,7 +23,11 @@ glam = "0.27.0"
 rand = "0.8.5"
 rodio = "0.17.3"
 winput = "0.2.5"
-ABC-ECS = "0.2.0"
+ABC-ECS = { git = "https://github.com/ABC-Engine/ABC-ECS"}
+fxhash = "0.2.1"
 
 [patch.'https://github.com/ABC-Engine/ABC-Game-Engine']
 ABC_Game_Engine = { path = "." }
+
+[dev-dependencies]
+console_renderer = { git = "https://github.com/ABC-Engine/console_renderer"}

@@ -4,7 +4,7 @@ mod resources;
 mod test;
 pub use resources::*;
 pub use resources::{delta_time, input};
-pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, System, World};
+pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, Resource, System, World};
 pub mod physics;
 
 /// Transform is a struct that holds the position, rotation, and scale of an object

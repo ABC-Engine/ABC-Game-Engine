@@ -100,16 +100,24 @@ impl System for PlayerMovementSystem {
                 .0
                 .speed;
 
-            if input.is_key_pressed(Vk::W) {
+            if input.get_key_state(KeyCode::W) == KeyState::Held
+                || input.get_key_state(KeyCode::W) == KeyState::Pressed
+            {
                 normalized_dir[1] += -1.0;
             }
-            if input.is_key_pressed(Vk::S) {
+            if input.get_key_state(KeyCode::S) == KeyState::Held
+                || input.get_key_state(KeyCode::S) == KeyState::Pressed
+            {
                 normalized_dir[1] += 1.0;
             }
-            if input.is_key_pressed(Vk::A) {
+            if input.get_key_state(KeyCode::A) == KeyState::Held
+                || input.get_key_state(KeyCode::A) == KeyState::Pressed
+            {
                 normalized_dir[0] += -1.0;
             }
-            if input.is_key_pressed(Vk::D) {
+            if input.get_key_state(KeyCode::D) == KeyState::Held
+                || input.get_key_state(KeyCode::D) == KeyState::Pressed
+            {
                 normalized_dir[0] += 1.0;
             }
             let magnitude = (normalized_dir[0].powi(2) + normalized_dir[1].powi(2)).sqrt();
