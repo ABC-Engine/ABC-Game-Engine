@@ -22,7 +22,6 @@ repository = "https://github.com/ABC-Engine/ABC-Game-Engine"
 glam = "0.27.0"
 rand = "0.8.5"
 rodio = "0.17.3"
-winput = "0.2.5"
 ABC-ECS = { git = "https://github.com/ABC-Engine/ABC-ECS"}
 fxhash = "0.2.1"
 

@@ -24,7 +24,6 @@ dependencies = [
  "glam",
  "rand",
  "rodio",
- "winput",
 ]
 
 [[package]]
