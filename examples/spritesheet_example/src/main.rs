@@ -33,9 +33,11 @@ impl System for MovementSystem {
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
                 .delta_time;
+
             let input = entities_and_components
                 .get_resource::<Input>()
                 .expect("failed to get input");
+
             if input.get_key_state(KeyCode::W) == KeyState::Held {
                 normalized_dir[1] += -1.0;
             }
