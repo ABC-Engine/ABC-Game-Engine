@@ -240,9 +240,9 @@ impl KeyState {
 }
 
 pub struct Input {
-    last_key_states: FxHashMap<KeyCode, KeyState>,
+    last_key_states: FxHashMap<KeyCode, bool>,
     /// KeyPressed is sent the frame that a key is pressed.
-    key_states: FxHashMap<KeyCode, KeyState>,
+    key_states: FxHashMap<KeyCode, bool>,
 }
 
 impl Input {
@@ -254,38 +254,33 @@ impl Input {
     }
 
     pub fn get_key_state(&self, key: KeyCode) -> KeyState {
-        *self.key_states.get(&key).unwrap_or(&KeyState::NotPressed)
+        let last = self.last_key_states.get(&key).copied().unwrap_or(false);
+        let current = self.key_states.get(&key).copied().unwrap_or(false);
+        if last {
+            if current {
+                KeyState::Held
+            } else {
+                KeyState::Released
+            }
+        } else {
+            if current {
+                KeyState::Pressed
+            } else {
+                KeyState::NotPressed
+            }
+        }
     }
 
     /// sets the key state of a key. Unless you are implementing a rendering system, don't call this.
-    /// if you are implementing a rendering system, call this after calling clear_key_states and before calling advance_frame.
-    pub fn set_key_state(&mut self, key: KeyCode) {
-        let prev_state = self
-            .key_states
-            .get(&key)
-            .copied()
-            .unwrap_or(KeyState::NotPressed);
-
-        let new_state = prev_state.next_state(true);
-
-        self.key_states.insert(key, new_state);
+    pub fn set_key_down(&mut self, key: KeyCode) {
+        self.key_states.insert(key, true);
     }
 
-    /// Clears all key states. Unless you are implementing a rendering system, don't call this.
+    /// Moves all current key states to previous key states. Unless you are implementing a rendering system, don't call this.
     /// if you are implementing a rendering system, call this before calling set_key_state.
     pub fn clear_key_states(&mut self) {
         self.last_key_states = self.key_states.clone();
         self.key_states.clear();
-    }
-
-    /// Advances the frame. Unless you are implementing a rendering system, don't call this.
-    /// if you are implementing a rendering system, call this after calling set_key_state.
-    pub fn advance_frame(&mut self) {
-        for (key, state) in self.last_key_states.iter() {
-            if self.key_states.get(key).is_none() {
-                self.key_states.insert(*key, state.next_state(false));
-            }
-        }
     }
 }
 

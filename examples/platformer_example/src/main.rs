@@ -127,7 +127,7 @@ fn main() {
 
     scene.world.add_system(PlayerController {
         speed: 1000.0,
-        jump_force: -10000.0,
+        jump_force: -500000.0,
     });
     physics::add_default_physics_systems(&mut scene);
 

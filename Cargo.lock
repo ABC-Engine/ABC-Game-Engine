@@ -30,7 +30,6 @@ dependencies = [
 [[package]]
 name = "ABC_lumenpyx"
 version = "0.1.0"
-source = "git+https://github.com/ABC-Engine/ABC_Lumenpyx#417edb5d03db9b43f34ff18b9dd25f22ad63f37f"
 dependencies = [
  "ABC_Game_Engine",
  "glium",
@@ -2825,9 +2824,9 @@ checksum = "53a85b86a771b1c87058196170769dd264f66c0782acf1ae6cc51bfd64b39082"
 
 [[package]]
 name = "wide"
-version = "0.7.17"
+version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f0e39d2c603fdc0504b12b458cf1f34e0b937ed2f4f2dc20796e3e86f34e11f"
+checksum = "5925f89e85af9e6e776bedb11ddeb2365b85cb56c13bfb30223e4b6398d30bb6"
 dependencies = [
  "bytemuck",
  "safe_arch",
