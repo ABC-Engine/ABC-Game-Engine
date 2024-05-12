@@ -1,11 +1,11 @@
 use crate::Scene;
 
-pub mod colliders;
-pub mod rigidbody;
+pub mod physics_system;
+pub use rapier2d;
 
 pub fn add_default_physics_systems(scene: &mut Scene) {
+    println!("Adding default physics systems");
     scene
         .world
-        .add_system(rigidbody::RigidBodyDynamicsSystem {});
-    scene.world.add_system(colliders::CollisionSystem {});
+        .add_system(physics_system::RapierPhysicsSystem::new());
 }

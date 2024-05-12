@@ -24,6 +24,7 @@ rand = "0.8.5"
 rodio = "0.17.3"
 ABC-ECS = { git = "https://github.com/ABC-Engine/ABC-ECS"}
 fxhash = "0.2.1"
+rapier2d = "0.19.0"
 
 [patch.'https://github.com/ABC-Engine/ABC-Game-Engine']
 ABC_Game_Engine = { path = "." }

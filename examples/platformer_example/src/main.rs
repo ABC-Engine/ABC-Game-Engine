@@ -1,11 +1,15 @@
-use console_renderer::camera::Camera;
-use console_renderer::Color;
-use console_renderer::{Circle, Rectangle, Renderer, Sprite};
-use ABC_Game_Engine::physics::colliders::{
-    BoxCollider, CircleCollider, Collider, ColliderProperties,
-};
-use ABC_Game_Engine::physics::rigidbody::{RigidBody, Vec2};
+use physics::rapier2d::na as nalgebra;
+use physics::rapier2d::prelude::RigidBody;
+use ABC_Game_Engine::physics::rapier2d::dynamics::RigidBodyBuilder;
+use ABC_Game_Engine::physics::rapier2d::geometry::ColliderBuilder;
+use ABC_Game_Engine::physics::rapier2d::na::vector;
 use ABC_Game_Engine::*;
+use ABC_lumenpyx::primitives::Circle;
+use ABC_lumenpyx::primitives::Rectangle;
+use ABC_lumenpyx::render;
+use ABC_lumenpyx::Camera;
+use ABC_lumenpyx::LumenpyxEventLoop;
+use ABC_lumenpyx::RenderSettings;
 
 struct Player {}
 
@@ -49,51 +53,44 @@ impl System for PlayerController {
         if let (Some(player), Some(transform), Some(rigid_body)) =
             entities_and_components.try_get_components_mut::<(Player, Transform, RigidBody)>(player)
         {
-            rigid_body.apply_force(Vec2::new(
-                normalized_dir[0] * self.speed * delta_time,
-                normalized_dir[1] * self.jump_force * delta_time,
-            ));
+            println!("transform x,y: {},{}", transform.x, transform.y);
+            rigid_body.apply_impulse(
+                vector![
+                    normalized_dir[0] * self.speed * delta_time,
+                    normalized_dir[1] * self.jump_force * delta_time,
+                ],
+                true,
+            );
         }
     }
 }
 
 fn main() {
-    let mut renderer = Renderer::new();
-    renderer.set_stretch(1.0);
     let mut scene = Scene::new();
+
+    let mut lumenpyx_eventloop =
+        LumenpyxEventLoop::new(&mut scene.world, [160, 160], "Platformer Example");
+
+    lumenpyx_eventloop.set_render_settings(
+        &mut scene.world,
+        RenderSettings::default()
+            .with_reflections(false)
+            .with_shadows(false),
+    );
     {
         let entities_and_components = &mut scene.world.entities_and_components;
 
-        let camera = Camera::new(160, 160);
+        let camera = Camera::new();
 
         entities_and_components.add_entity_with((camera, Transform::default()));
 
-        renderer.set_scene_params(renderer.get_scene_params().with_background_color(Color {
-            r: 100,
-            g: 0,
-            b: 0,
-            a: 0.0,
-        }));
+        let ball = Circle::new([1.0, 1.0, 1.0, 1.0], 5.0);
 
-        renderer.set_scene_params(renderer.get_scene_params().with_random_chars(true));
-
-        let ball = Circle {
-            radius: 5.0,
-            color: Color {
-                r: 255,
-                g: 255,
-                b: 255,
-                a: 1.0,
-            },
-        };
-
-        let circle_collider = Collider::new(
-            CircleCollider::new(5.0).into(),
-            ColliderProperties::new(false),
-        );
+        let circle_collider = ColliderBuilder::ball(5.0).build();
+        let circle_rb = RigidBodyBuilder::dynamic().additional_mass(1.0).build();
 
         entities_and_components.add_entity_with((
-            Sprite::Circle(ball),
+            ball,
             Transform {
                 x: -20.0,
                 y: -20.0,
@@ -103,30 +100,20 @@ fn main() {
                 origin_x: 0.0,
                 origin_y: 0.0,
             },
-            RigidBody::new(25.0, Vec2::ZERO, 8.0),
+            circle_rb,
             circle_collider,
             Player {},
         ));
 
-        let ground_collider = Collider::new(
-            BoxCollider::new(160.0, 10.0).into(),
-            ColliderProperties::new(true),
-        );
+        let ground_collider = ColliderBuilder::cuboid(160.0, 10.0).build();
+        let ground_rb = RigidBodyBuilder::fixed().build();
+        let ground_rect = Rectangle::new([1.0, 1.0, 1.0, 1.0], 160.0, 10.0);
 
         entities_and_components.add_entity_with((
-            Sprite::Rectangle(Rectangle {
-                width: 160.0,
-                height: 10.0,
-                color: Color {
-                    r: 255,
-                    g: 255,
-                    b: 255,
-                    a: 1.0,
-                },
-            }),
+            ground_rect,
             Transform {
                 x: 0.0,
-                y: 80.0,
+                y: -80.0,
                 z: 0.0,
                 rotation: 0.0,
                 scale: 1.0,
@@ -134,18 +121,19 @@ fn main() {
                 origin_y: 0.0,
             },
             ground_collider,
+            ground_rb,
         ));
     }
 
     scene.world.add_system(PlayerController {
-        speed: 100.0,
-        jump_force: 1000.0,
+        speed: 1000.0,
+        jump_force: -10000.0,
     });
     physics::add_default_physics_systems(&mut scene);
 
-    loop {
-        scene.world.run();
+    lumenpyx_eventloop.run(&mut scene.world, |renderer, world| {
+        world.run();
 
-        renderer.render(&mut scene.world.entities_and_components);
-    }
+        render(&mut world.entities_and_components, renderer);
+    });
 }

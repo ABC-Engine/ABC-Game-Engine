@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 ABC_Game_Engine = { path = "../../" }
-console_renderer = { git = "https://github.com/ABC-Engine/console_renderer" }
+ABC_lumenpyx = { git = "https://github.com/ABC-Engine/ABC_Lumenpyx" }
