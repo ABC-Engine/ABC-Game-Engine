@@ -1,9 +1,42 @@
+use core::time;
+use std::ops::Deref;
+use std::ops::DerefMut;
+
 use rapier2d::prelude::*;
 use ABC_ECS::EntitiesAndComponents;
 use ABC_ECS::Entity;
+use ABC_ECS::Resource;
 use ABC_ECS::System;
 
 use crate::Transform;
+
+struct RapierPhysicsInfo {
+    query_pipeline: QueryPipeline,
+}
+
+impl Deref for RapierPhysicsInfo {
+    type Target = QueryPipeline;
+
+    fn deref(&self) -> &Self::Target {
+        &self.query_pipeline
+    }
+}
+
+impl DerefMut for RapierPhysicsInfo {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.query_pipeline
+    }
+}
+
+impl Resource for RapierPhysicsInfo {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
 
 pub struct RapierPhysicsSystem {
     gravity: Vector<Real>,
@@ -15,15 +48,16 @@ pub struct RapierPhysicsSystem {
     impulse_joint_set: ImpulseJointSet,
     multibody_joint_set: MultibodyJointSet,
     ccd_solver: CCDSolver,
-    query_pipeline: QueryPipeline,
     physics_hooks: (),
     event_handler: (),
     rigid_body_set: RigidBodySet,
     collider_set: ColliderSet,
+    time_started: std::time::Instant,
+    time_elapsed_before_this_frame: std::time::Duration,
 }
 
 impl RapierPhysicsSystem {
-    pub fn new() -> RapierPhysicsSystem {
+    pub fn new(world: &mut EntitiesAndComponents) -> RapierPhysicsSystem {
         /* Create other structures necessary for the simulation. */
         let gravity = vector![0.0, -9.81];
         let integration_parameters = IntegrationParameters::default();
@@ -37,9 +71,12 @@ impl RapierPhysicsSystem {
         let impulse_joint_set = ImpulseJointSet::new();
         let multibody_joint_set = MultibodyJointSet::new();
         let ccd_solver = CCDSolver::new();
-        let query_pipeline = QueryPipeline::new();
         let physics_hooks = ();
         let event_handler = ();
+        let query_pipeline = QueryPipeline::new();
+        let rapier_physics_info = RapierPhysicsInfo { query_pipeline };
+        // add the physics info to the world
+        world.add_resource(rapier_physics_info);
 
         RapierPhysicsSystem {
             gravity,
@@ -51,15 +88,21 @@ impl RapierPhysicsSystem {
             impulse_joint_set,
             multibody_joint_set,
             ccd_solver,
-            query_pipeline,
             physics_hooks,
             event_handler,
             rigid_body_set: RigidBodySet::new(),
             collider_set: ColliderSet::new(),
+            time_started: std::time::Instant::now(),
+            time_elapsed_before_this_frame: std::time::Duration::new(0, 0),
         }
     }
 
-    fn step(&mut self) {
+    fn step(&mut self, world: &mut EntitiesAndComponents) {
+        let query_pipeline = &mut world
+            .get_resource_mut::<RapierPhysicsInfo>()
+            .expect("failed to get rapier physics info, report this as a bug")
+            .query_pipeline;
+
         self.physics_pipeline.step(
             &self.gravity,
             &self.integration_parameters,
@@ -71,15 +114,25 @@ impl RapierPhysicsSystem {
             &mut self.impulse_joint_set,
             &mut self.multibody_joint_set,
             &mut self.ccd_solver,
-            Some(&mut self.query_pipeline),
+            Some(query_pipeline),
             &self.physics_hooks,
             &self.event_handler,
         );
+
+        query_pipeline.update(&self.rigid_body_set, &self.collider_set);
     }
 }
 
 impl System for RapierPhysicsSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let time_since_last_step =
+            self.time_started.elapsed() - self.time_elapsed_before_this_frame;
+        if time_since_last_step.as_secs_f64() > 1.0 / 60.0 {
+            self.time_elapsed_before_this_frame = self.time_started.elapsed();
+        } else {
+            return;
+        }
+
         get_all_rigid_bodies_and_colliders(
             entities_and_components,
             &mut self.rigid_body_set,
@@ -87,7 +140,7 @@ impl System for RapierPhysicsSystem {
             Transform::default(),
         );
 
-        self.step();
+        self.step(entities_and_components);
 
         // if anything is changed between the physics system and the set_all_rigid_bodies_and_colliders call, it will break it don't do that
 
