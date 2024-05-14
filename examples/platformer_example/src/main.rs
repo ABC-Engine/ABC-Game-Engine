@@ -1,8 +1,14 @@
+use core::panic;
+
 use physics::rapier2d::na as nalgebra;
 use physics::rapier2d::prelude::RigidBody;
+use ABC_Game_Engine::physics::physics_system::RapierPhysicsInfo;
 use ABC_Game_Engine::physics::rapier2d::dynamics::RigidBodyBuilder;
 use ABC_Game_Engine::physics::rapier2d::geometry::ColliderBuilder;
+use ABC_Game_Engine::physics::rapier2d::geometry::Ray;
+use ABC_Game_Engine::physics::rapier2d::math::Real;
 use ABC_Game_Engine::physics::rapier2d::na::vector;
+use ABC_Game_Engine::physics::rapier2d::pipeline::QueryFilter;
 use ABC_Game_Engine::*;
 use ABC_lumenpyx::primitives::Circle;
 use ABC_lumenpyx::primitives::Rectangle;
@@ -20,6 +26,20 @@ struct PlayerController {
 
 impl System for PlayerController {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let player_entity;
+        let (player_x, player_y) = {
+            let player_entities = entities_and_components
+                .get_entities_with_component::<Player>()
+                .cloned()
+                .collect::<Vec<Entity>>();
+
+            player_entity = player_entities[0];
+
+            let (transform,) =
+                entities_and_components.get_components::<(Transform,)>(player_entity);
+            (transform.x, transform.y)
+        };
+
         let delta_time: f32;
         let mut normalized_dir = [0.0 as f32; 2];
         {
@@ -27,6 +47,9 @@ impl System for PlayerController {
                 .get_resource::<DeltaTime>()
                 .expect("Failed to get DeltaTime resource")
                 .delta_time as f32;
+            let physics_info = entities_and_components
+                .get_resource::<RapierPhysicsInfo>()
+                .expect("Failed to get PhysicsInfo resource");
 
             let input = entities_and_components.get_resource::<Input>().unwrap();
 
@@ -38,26 +61,33 @@ impl System for PlayerController {
                 normalized_dir[0] += 1.0;
             }
 
-            if input.get_key_state(KeyCode::Space) == KeyState::Pressed {
-                normalized_dir[1] -= 1.0;
+            let intersection = physics_info.cast_ray(
+                &Ray::new(
+                    vector![player_x as f32, player_y as f32 - 5.01].into(),
+                    vector![0.0, -1.0],
+                ),
+                Real::MAX,
+                true,
+                QueryFilter::default(),
+            );
+
+            if input.get_key_state(KeyCode::Space) == KeyState::Pressed && intersection.is_some() {
+                if intersection.unwrap().1 < 0.01 {
+                    if intersection.unwrap().0 == player_entity {
+                        panic!("Player is intersecting with itself");
+                    }
+                    normalized_dir[1] = 1.0;
+                }
             }
         }
 
-        let player_entities = entities_and_components
-            .get_entities_with_component::<Player>()
-            .cloned()
-            .collect::<Vec<Entity>>();
-
-        let player = player_entities[0];
-
-        if let (Some(player), Some(transform), Some(rigid_body)) =
-            entities_and_components.try_get_components_mut::<(Player, Transform, RigidBody)>(player)
+        if let (Some(player), Some(transform), Some(rigid_body)) = entities_and_components
+            .try_get_components_mut::<(Player, Transform, RigidBody)>(player_entity)
         {
-            println!("transform x,y: {},{}", transform.x, transform.y);
             rigid_body.apply_impulse(
                 vector![
                     normalized_dir[0] * self.speed * delta_time,
-                    normalized_dir[1] * self.jump_force * delta_time,
+                    normalized_dir[1] * self.jump_force,
                 ],
                 true,
             );
@@ -127,7 +157,7 @@ fn main() {
 
     scene.world.add_system(PlayerController {
         speed: 1000.0,
-        jump_force: -300000.0,
+        jump_force: 3000.0,
     });
     physics::add_default_physics_systems(&mut scene);
 
