@@ -2,6 +2,8 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 use rapier2d::parry::query::NonlinearRigidMotion;
+pub use rapier2d::prelude::ColliderHandle as RapierColliderHandle;
+pub use rapier2d::prelude::RigidBodyHandle as RapierRigidBodyHandle;
 use rapier2d::prelude::*;
 use ABC_ECS::EntitiesAndComponents;
 use ABC_ECS::Entity;
@@ -502,7 +504,6 @@ impl RapierPhysicsSystem {
             time_elapsed_before_this_frame: std::time::Duration::new(0, 0),
         };
         // add the physics info to the world
-        println!("added rapier physics info");
         world.add_resource(rapier_physics_info);
 
         RapierPhysicsSystem {}
@@ -566,10 +567,21 @@ impl System for RapierPhysicsSystem {
                 }
             }
 
+            let mut rb_handles_found_this_frame = vec![];
+            let mut collider_handles_found_this_frame = vec![];
             get_all_rigid_bodies_and_colliders(
                 physics_info,
                 entities_and_components,
+                &mut rb_handles_found_this_frame,
+                &mut collider_handles_found_this_frame,
                 Transform::default(),
+            );
+
+            handle_removed_entities(
+                entities_and_components,
+                physics_info,
+                &mut rb_handles_found_this_frame,
+                &mut collider_handles_found_this_frame,
             );
         }
 
@@ -603,11 +615,11 @@ impl System for RapierPhysicsSystem {
 // just so that the user can't accidentally mess with up the internals of the physics system
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// the handle to a rigidbody in the physics world, do not add this to an entity manually. you will break the physics system
-pub struct RigidBodyHandle(rapier2d::prelude::RigidBodyHandle);
+pub struct RigidBodyHandle(pub RapierRigidBodyHandle);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 /// the handle to a collider in the physics world, do not add this to an entity manually. you will break the physics system
-pub struct ColliderHandle(rapier2d::prelude::ColliderHandle);
+pub struct ColliderHandle(pub RapierColliderHandle);
 
 // a tag to temporarily store in an entity that the rigidbody has changed
 struct RBHandleChanged;
@@ -629,6 +641,8 @@ impl From<rapier2d::prelude::ColliderHandle> for ColliderHandle {
 fn get_all_rigid_bodies_and_colliders(
     physics_info: &mut RapierPhysicsInfo,
     world: &mut EntitiesAndComponents,
+    rb_handles_found: &mut Vec<RigidBodyHandle>,
+    collider_handles_found: &mut Vec<ColliderHandle>,
     transform_offset: Transform,
 ) {
     let mut rigidbody_entities = world
@@ -649,6 +663,14 @@ fn get_all_rigid_bodies_and_colliders(
 
     for rigidbody_entity in rigidbody_entities {
         update_rb(physics_info, world, rigidbody_entity, transform_offset);
+
+        // the entity should have a handle now
+        if let Some(rb_handle) = world
+            .try_get_components::<(RigidBodyHandle,)>(rigidbody_entity)
+            .0
+        {
+            rb_handles_found.push(rb_handle.clone());
+        }
     }
 
     let collider_entities = world
@@ -658,6 +680,14 @@ fn get_all_rigid_bodies_and_colliders(
         .collect::<Vec<Entity>>();
     for collider_entity in collider_entities {
         update_collider(physics_info, world, collider_entity);
+
+        // the entity should have a handle now
+        if let Some(collider_handle) = world
+            .try_get_components::<(ColliderHandle,)>(collider_entity)
+            .0
+        {
+            collider_handles_found.push(collider_handle.clone());
+        }
     }
 
     // recursively get all children
@@ -679,8 +709,66 @@ fn get_all_rigid_bodies_and_colliders(
         get_all_rigid_bodies_and_colliders(
             physics_info,
             children.expect("failed to get children, this is a bug"),
+            rb_handles_found,
+            collider_handles_found,
             transform_offset,
         );
+    }
+}
+
+fn handle_removed_entities(
+    world: &mut EntitiesAndComponents,
+    physics_info: &mut RapierPhysicsInfo,
+    rb_handles_found: &mut Vec<RigidBodyHandle>,
+    collider_handles_found: &mut Vec<ColliderHandle>,
+) {
+    // handle cases where entities are removed or rb's are removed
+    {
+        let mut rigidbody_entities_in_physics_copy = physics_info.rigid_body_handle_map.clone();
+
+        for rb_handle in rb_handles_found {
+            rigidbody_entities_in_physics_copy.remove(&rb_handle);
+        }
+
+        for (rb_handle, rb_entity) in rigidbody_entities_in_physics_copy {
+            physics_info.rigid_body_set.remove(
+                rb_handle.0,
+                &mut physics_info.island_manager,
+                &mut physics_info.collider_set,
+                &mut physics_info.impulse_joint_set,
+                &mut physics_info.multibody_joint_set,
+                false,
+            );
+
+            physics_info.rigid_body_handle_map.remove(&rb_handle);
+
+            // make sure the rb_handle is removed from the entity
+            if world.does_entity_exist(rb_entity) {
+                world.remove_component_from::<RigidBodyHandle>(rb_entity);
+            }
+        }
+
+        let mut collider_entities_in_physics = physics_info.collider_handle_map.clone();
+
+        for collider_handle in collider_handles_found {
+            collider_entities_in_physics.remove(&collider_handle);
+        }
+
+        for (collider_handle, collider_entity) in collider_entities_in_physics {
+            physics_info.collider_set.remove(
+                collider_handle.0,
+                &mut physics_info.island_manager,
+                &mut physics_info.rigid_body_set,
+                false,
+            );
+
+            physics_info.collider_handle_map.remove(&collider_handle);
+
+            // make sure the collider_handle is removed from the entity
+            if world.does_entity_exist(collider_entity) {
+                world.remove_component_from::<ColliderHandle>(collider_entity);
+            }
+        }
     }
 }
 
@@ -912,7 +1000,6 @@ fn set_all_rigid_bodies_and_colliders(
                 }
                 _ => {
                     // log warning that rigidbody is missing transform
-                    //println!("components that you have transform: {:?}, rigidbody: {:?}, rigidbody_handle: {:?}", transform.is_some(), rigidbody.is_some(), rigidbody_handle.is_some());
                 }
             }
         }
