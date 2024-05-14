@@ -1,8 +1,6 @@
-use core::time;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use rapier2d::parry;
 use rapier2d::parry::query::NonlinearRigidMotion;
 use rapier2d::prelude::*;
 use ABC_ECS::EntitiesAndComponents;
@@ -37,6 +35,10 @@ pub struct RapierPhysicsInfo {
 }
 
 impl RapierPhysicsInfo {
+    pub fn set_gravity(&mut self, gravity: Vector<Real>) {
+        self.gravity = gravity;
+    }
+
     /// Find the associated entity with a rigid body handle.
     pub fn get_associated_entity_with_rigid_body_handle(
         &self,
@@ -500,6 +502,7 @@ impl RapierPhysicsSystem {
             time_elapsed_before_this_frame: std::time::Duration::new(0, 0),
         };
         // add the physics info to the world
+        println!("added rapier physics info");
         world.add_resource(rapier_physics_info);
 
         RapierPhysicsSystem {}
@@ -548,26 +551,83 @@ impl System for RapierPhysicsSystem {
             }
         }
 
-        get_all_rigid_bodies_and_colliders(entities_and_components, Transform::default());
+        {
+            let physics_info;
+            {
+                let physics_info_ref = entities_and_components
+                    .get_resource_mut::<RapierPhysicsInfo>()
+                    .expect("failed to get rapier physics info, report this as a bug");
+
+                let physics_info_ptr = physics_info_ref as *mut RapierPhysicsInfo;
+                unsafe {
+                    // SAFETY: we don't access physics info anywhere else in this function, so this is safe
+                    // and physics info doesn't intersect with anythign else in the world
+                    physics_info = &mut *physics_info_ptr;
+                }
+            }
+
+            get_all_rigid_bodies_and_colliders(
+                physics_info,
+                entities_and_components,
+                Transform::default(),
+            );
+        }
 
         self.step(entities_and_components);
 
         // if anything is changed between the physics system and the set_all_rigid_bodies_and_colliders call, it will break it don't do that
 
-        set_all_rigid_bodies_and_colliders(entities_and_components, Transform::default());
+        {
+            let physics_info;
+            {
+                let physics_info_ref = entities_and_components
+                    .get_resource::<RapierPhysicsInfo>()
+                    .expect("failed to get rapier physics info, report this as a bug");
+
+                let physics_info_ptr = physics_info_ref as *const RapierPhysicsInfo;
+                unsafe {
+                    // SAFETY: we don't access physics info anywhere else in this function, so this is safe
+                    // and physics info doesn't intersect with anythign else in the world
+                    physics_info = &*physics_info_ptr;
+                }
+            }
+            set_all_rigid_bodies_and_colliders(
+                physics_info,
+                entities_and_components,
+                Transform::default(),
+            );
+        }
     }
 }
 
 // just so that the user can't accidentally mess with up the internals of the physics system
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct RigidBodyHandle(rapier2d::prelude::RigidBodyHandle);
+/// the handle to a rigidbody in the physics world, do not add this to an entity manually. you will break the physics system
+pub struct RigidBodyHandle(rapier2d::prelude::RigidBodyHandle);
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct ColliderHandle(rapier2d::prelude::ColliderHandle);
+/// the handle to a collider in the physics world, do not add this to an entity manually. you will break the physics system
+pub struct ColliderHandle(rapier2d::prelude::ColliderHandle);
+
 // a tag to temporarily store in an entity that the rigidbody has changed
 struct RBHandleChanged;
 
+impl From<rapier2d::prelude::RigidBodyHandle> for RigidBodyHandle {
+    fn from(handle: rapier2d::prelude::RigidBodyHandle) -> Self {
+        RigidBodyHandle(handle)
+    }
+}
+
+impl From<rapier2d::prelude::ColliderHandle> for ColliderHandle {
+    fn from(handle: rapier2d::prelude::ColliderHandle) -> Self {
+        ColliderHandle(handle)
+    }
+}
+
 /// This function gets all rigid bodies and colliders in the world and inserts them into the given sets
+/// it promises to not access the physics info in any way other than the given reference
 fn get_all_rigid_bodies_and_colliders(
+    physics_info: &mut RapierPhysicsInfo,
     world: &mut EntitiesAndComponents,
     transform_offset: Transform,
 ) {
@@ -588,7 +648,7 @@ fn get_all_rigid_bodies_and_colliders(
     rigidbody_entities.dedup();
 
     for rigidbody_entity in rigidbody_entities {
-        update_rb(world, rigidbody_entity, transform_offset);
+        update_rb(physics_info, world, rigidbody_entity, transform_offset);
     }
 
     let collider_entities = world
@@ -597,7 +657,7 @@ fn get_all_rigid_bodies_and_colliders(
         .copied()
         .collect::<Vec<Entity>>();
     for collider_entity in collider_entities {
-        update_collider(world, collider_entity);
+        update_collider(physics_info, world, collider_entity);
     }
 
     // recursively get all children
@@ -617,33 +677,22 @@ fn get_all_rigid_bodies_and_colliders(
         }
 
         get_all_rigid_bodies_and_colliders(
+            physics_info,
             children.expect("failed to get children, this is a bug"),
             transform_offset,
         );
     }
 }
 
+/// this fn promises to not access the physics info in any way other than the given reference
 fn update_rb(
+    physics_info: &mut RapierPhysicsInfo,
     world: &mut EntitiesAndComponents,
     rigidbody_entity: Entity,
     //out_rigid_body_set: &mut RigidBodySet,
     //out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, Entity>,
     transform_offset: Transform,
 ) {
-    let physics_info;
-    {
-        let physics_info_ref = world
-            .get_resource_mut::<RapierPhysicsInfo>()
-            .expect("failed to get rapier physics info, report this as a bug");
-
-        let physics_info_ptr = physics_info_ref as *mut RapierPhysicsInfo;
-        unsafe {
-            // SAFETY: we don't access physics info anywhere else in this function, so this is safe
-            // and physics info doesn't intersect with anythign else in the world
-            physics_info = &mut *physics_info_ptr;
-        }
-    }
-
     let (rigidbody, transform, rigidbody_handle) =
         world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(rigidbody_entity);
 
@@ -723,21 +772,11 @@ fn add_new_rb(
     (RigidBodyHandle(new_rb_handle), RBHandleChanged)
 }
 
-fn update_collider(world: &mut EntitiesAndComponents, entity: Entity) {
-    let physics_info;
-    {
-        let physics_info_ref = world
-            .get_resource_mut::<RapierPhysicsInfo>()
-            .expect("failed to get rapier physics info, report this as a bug");
-
-        let physics_info_ptr = physics_info_ref as *mut RapierPhysicsInfo;
-        unsafe {
-            // SAFETY: we don't access physics info anywhere else in this function, so this is safe
-            // and physics info doesn't intersect with anythign else in the world
-            physics_info = &mut *physics_info_ptr;
-        }
-    }
-
+fn update_collider(
+    physics_info: &mut RapierPhysicsInfo,
+    world: &mut EntitiesAndComponents,
+    entity: Entity,
+) {
     let (collider, transform, collider_handle, rb_handle, handle_has_changed) = world
         .try_get_components_mut::<(
             Collider,
@@ -840,35 +879,23 @@ fn add_new_collider(
 /// This function updates the transforms of all rigid bodies and colliders in the world
 /// it uses the same logic as get_all_rigid_bodies_and_colliders, but instead of inserting into the sets, it updates the transforms
 fn set_all_rigid_bodies_and_colliders(
-    world: &mut EntitiesAndComponents,
+    physics_info: &RapierPhysicsInfo,
+    current_world: &mut EntitiesAndComponents,
     transform_offset: Transform,
 ) {
-    let physics_info;
-    {
-        let physics_info_ref = world
-            .get_resource::<RapierPhysicsInfo>()
-            .expect("failed to get rapier physics info, report this as a bug");
-
-        let physics_info_ptr = physics_info_ref as *const RapierPhysicsInfo;
-        unsafe {
-            // SAFETY: we don't access physics info anywhere else in this function, so this is safe
-            // and physics info doesn't intersect with anythign else in the world
-            physics_info = &*physics_info_ptr;
-        }
-    }
     let rigid_body_set = &physics_info.rigid_body_set;
     let collider_set = &physics_info.collider_set;
 
     {
         // we have to do this dance to avoid borrowing issues...
-        let rigidbody_entities = world
+        let rigidbody_entities = current_world
             .get_entities_with_component::<RigidBodyHandle>()
             .into_iter()
             .copied()
             .collect::<Vec<Entity>>();
         for rigidbody_entity in rigidbody_entities {
             let (rigidbody, transform, rigidbody_handle) =
-                world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(
+                current_world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(
                     rigidbody_entity,
                 );
 
@@ -893,15 +920,17 @@ fn set_all_rigid_bodies_and_colliders(
 
     {
         // we have to do this dance to avoid borrowing issues...
-        let collider_entities = world
+        let collider_entities = current_world
             .get_entities_with_component::<Collider>()
             .into_iter()
             .copied()
             .collect::<Vec<Entity>>();
 
         for collider_entity in collider_entities {
-            let (collider, transform, collider_handle) = world
-                .try_get_components_mut::<(Collider, Transform, ColliderHandle)>(collider_entity);
+            let (collider, transform, collider_handle) =
+                current_world.try_get_components_mut::<(Collider, Transform, ColliderHandle)>(
+                    collider_entity,
+                );
             if let (Some(ecs_collider), Some(transform), Some(collider_handle)) =
                 (collider, transform, collider_handle)
             {
@@ -920,7 +949,7 @@ fn set_all_rigid_bodies_and_colliders(
 
     // recursively get all children
     // we have to do this dance to avoid borrowing issues...
-    let entities_with_children = world
+    let entities_with_children = current_world
         .get_entities_with_component::<EntitiesAndComponents>()
         .into_iter()
         .copied()
@@ -928,7 +957,7 @@ fn set_all_rigid_bodies_and_colliders(
 
     for entity in entities_with_children {
         let (children, transform) =
-            world.try_get_components_mut::<(EntitiesAndComponents, Transform)>(entity);
+            current_world.try_get_components_mut::<(EntitiesAndComponents, Transform)>(entity);
 
         let mut transform_offset = transform_offset;
         if let Some(transform) = transform {
@@ -936,6 +965,7 @@ fn set_all_rigid_bodies_and_colliders(
         }
 
         set_all_rigid_bodies_and_colliders(
+            physics_info,
             children.expect("failed to get children, this is a bug"),
             transform_offset,
         );

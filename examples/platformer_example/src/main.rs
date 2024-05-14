@@ -4,7 +4,9 @@ use physics::rapier2d::na as nalgebra;
 use physics::rapier2d::prelude::RigidBody;
 use ABC_Game_Engine::physics::physics_system::RapierPhysicsInfo;
 use ABC_Game_Engine::physics::rapier2d::dynamics::RigidBodyBuilder;
+use ABC_Game_Engine::physics::rapier2d::geometry::Collider;
 use ABC_Game_Engine::physics::rapier2d::geometry::ColliderBuilder;
+use ABC_Game_Engine::physics::rapier2d::geometry::ColliderHandle;
 use ABC_Game_Engine::physics::rapier2d::geometry::Ray;
 use ABC_Game_Engine::physics::rapier2d::math::Real;
 use ABC_Game_Engine::physics::rapier2d::na::vector;
@@ -17,7 +19,8 @@ use ABC_lumenpyx::Camera;
 use ABC_lumenpyx::LumenpyxEventLoop;
 use ABC_lumenpyx::RenderSettings;
 
-struct Player {}
+struct Player;
+struct Ground;
 
 struct PlayerController {
     speed: f32,
@@ -61,6 +64,22 @@ impl System for PlayerController {
                 normalized_dir[0] += 1.0;
             }
 
+            let is_ground_check = |collider_handle: ColliderHandle, collider: &Collider| {
+                let entity = physics_info
+                    .get_associated_entity_with_collider_handle(collider_handle.into())
+                    .expect("Failed to get associated entity with collider handle");
+
+                entities_and_components
+                    .try_get_components::<(Ground,)>(entity)
+                    .0
+                    .is_some()
+            };
+
+            let is_ground_filter = QueryFilter {
+                predicate: Some(&is_ground_check),
+                ..Default::default()
+            };
+
             let intersection = physics_info.cast_ray(
                 &Ray::new(
                     vector![player_x as f32, player_y as f32 - 5.01].into(),
@@ -68,7 +87,7 @@ impl System for PlayerController {
                 ),
                 Real::MAX,
                 true,
-                QueryFilter::default(),
+                is_ground_filter,
             );
 
             if input.get_key_state(KeyCode::Space) == KeyState::Pressed && intersection.is_some() {
@@ -152,6 +171,7 @@ fn main() {
             },
             ground_collider,
             ground_rb,
+            Ground {},
         ));
     }
 
