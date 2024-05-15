@@ -17,8 +17,8 @@ use crate::Transform;
 /// all of the docs are 95% copy pasted from the rapier docs
 pub struct RapierPhysicsInfo {
     query_pipeline: QueryPipeline,
-    rigid_body_handle_map: std::collections::HashMap<RigidBodyHandle, Entity>,
-    collider_handle_map: std::collections::HashMap<ColliderHandle, Entity>,
+    rigid_body_handle_map: std::collections::HashMap<RigidBodyHandle, EntityPath>,
+    collider_handle_map: std::collections::HashMap<ColliderHandle, EntityPath>,
     gravity: Vector<Real>,
     integration_parameters: IntegrationParameters,
     physics_pipeline: PhysicsPipeline,
@@ -45,16 +45,16 @@ impl RapierPhysicsInfo {
     pub fn get_associated_entity_with_rigid_body_handle(
         &self,
         handle: RigidBodyHandle,
-    ) -> Option<Entity> {
-        self.rigid_body_handle_map.get(&handle).copied()
+    ) -> Option<EntityPath> {
+        self.rigid_body_handle_map.get(&handle).cloned()
     }
 
     /// Find the associated entity with a collider handle.
     pub fn get_associated_entity_with_collider_handle(
         &self,
         handle: ColliderHandle,
-    ) -> Option<Entity> {
-        self.collider_handle_map.get(&handle).copied()
+    ) -> Option<EntityPath> {
+        self.collider_handle_map.get(&handle).cloned()
     }
 
     /// Find the closest intersection between a ray and a set of collider.
@@ -73,7 +73,7 @@ impl RapierPhysicsInfo {
         max_toi: Real,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(Entity, Real)> {
+    ) -> Option<(EntityPath, Real)> {
         let intersection = self.query_pipeline.cast_ray(
             &self.rigid_body_set,
             &self.collider_set,
@@ -110,7 +110,7 @@ impl RapierPhysicsInfo {
         max_toi: Real,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(Entity, RayIntersection)> {
+    ) -> Option<(EntityPath, RayIntersection)> {
         let intersection = self.query_pipeline.cast_ray_and_get_normal(
             &self.rigid_body_set,
             &self.collider_set,
@@ -150,7 +150,7 @@ impl RapierPhysicsInfo {
         max_toi: Real,
         solid: bool,
         filter: QueryFilter,
-        mut callback: impl FnMut(Entity, RayIntersection) -> bool,
+        mut callback: impl FnMut(EntityPath, RayIntersection) -> bool,
     ) {
         self.query_pipeline.intersections_with_ray(
             &self.rigid_body_set,
@@ -179,7 +179,7 @@ impl RapierPhysicsInfo {
         shape_pos: &Isometry<Real>,
         shape: &dyn Shape,
         filter: QueryFilter,
-    ) -> Option<Entity> {
+    ) -> Option<EntityPath> {
         let intersection = self.query_pipeline.intersection_with_shape(
             &self.rigid_body_set,
             &self.collider_set,
@@ -214,7 +214,7 @@ impl RapierPhysicsInfo {
         point: &Point<Real>,
         solid: bool,
         filter: QueryFilter,
-    ) -> Option<(Entity, PointProjection)> {
+    ) -> Option<(EntityPath, PointProjection)> {
         let projection = self.query_pipeline.project_point(
             &self.rigid_body_set,
             &self.collider_set,
@@ -245,7 +245,7 @@ impl RapierPhysicsInfo {
         &self,
         point: &Point<Real>,
         filter: QueryFilter,
-        mut callback: impl FnMut(Entity) -> bool,
+        mut callback: impl FnMut(EntityPath) -> bool,
     ) {
         self.query_pipeline.intersections_with_point(
             &self.rigid_body_set,
@@ -277,7 +277,7 @@ impl RapierPhysicsInfo {
         &self,
         point: &Point<Real>,
         filter: QueryFilter,
-    ) -> Option<(Entity, PointProjection, FeatureId)> {
+    ) -> Option<(EntityPath, PointProjection, FeatureId)> {
         let projection = self.query_pipeline.project_point_and_get_feature(
             &self.rigid_body_set,
             &self.collider_set,
@@ -300,7 +300,7 @@ impl RapierPhysicsInfo {
     pub fn colliders_with_aabb_intersecting_aabb(
         &self,
         aabb: &Aabb,
-        mut callback: impl FnMut(&Entity) -> bool,
+        mut callback: impl FnMut(&EntityPath) -> bool,
     ) {
         self.query_pipeline
             .colliders_with_aabb_intersecting_aabb(aabb, |handle| {
@@ -334,7 +334,7 @@ impl RapierPhysicsInfo {
         shape: &dyn Shape,
         options: rapier2d::parry::query::ShapeCastOptions,
         filter: QueryFilter,
-    ) -> Option<(Entity, ShapeCastHit)> {
+    ) -> Option<(EntityPath, ShapeCastHit)> {
         let intersection = self.query_pipeline.cast_shape(
             &self.rigid_body_set,
             &self.collider_set,
@@ -382,7 +382,7 @@ impl RapierPhysicsInfo {
         end_time: Real,
         stop_at_penetration: bool,
         filter: QueryFilter,
-    ) -> Option<(Entity, ShapeCastHit)> {
+    ) -> Option<(EntityPath, ShapeCastHit)> {
         let intersection = self.query_pipeline.nonlinear_cast_shape(
             &self.rigid_body_set,
             &self.collider_set,
@@ -420,7 +420,7 @@ impl RapierPhysicsInfo {
         shape_pos: &Isometry<Real>,
         shape: &dyn Shape,
         filter: QueryFilter,
-        mut callback: impl FnMut(Entity) -> bool,
+        mut callback: impl FnMut(EntityPath) -> bool,
     ) {
         self.query_pipeline.intersections_with_shape(
             bodies,
@@ -572,6 +572,7 @@ impl System for RapierPhysicsSystem {
             get_all_rigid_bodies_and_colliders(
                 physics_info,
                 entities_and_components,
+                EntityPath::new(),
                 &mut rb_handles_found_this_frame,
                 &mut collider_handles_found_this_frame,
                 Transform::default(),
@@ -640,30 +641,35 @@ impl From<rapier2d::prelude::ColliderHandle> for ColliderHandle {
 /// it promises to not access the physics info in any way other than the given reference
 fn get_all_rigid_bodies_and_colliders(
     physics_info: &mut RapierPhysicsInfo,
-    world: &mut EntitiesAndComponents,
+    global_world: &mut EntitiesAndComponents,
+    entity_path: EntityPath,
     rb_handles_found: &mut Vec<RigidBodyHandle>,
     collider_handles_found: &mut Vec<ColliderHandle>,
     transform_offset: Transform,
 ) {
-    let mut rigidbody_entities = world
-        .get_entities_with_component::<RigidBody>()
-        .into_iter()
-        .copied()
-        .collect::<Vec<Entity>>();
+    let rigidbody_entities;
+    {
+        let world = entity_path.access_entities_and_components_mut(global_world);
 
-    let collider_entities = world
-        .get_entities_with_component::<Collider>()
-        .into_iter()
-        .copied()
-        .collect::<Vec<Entity>>();
-
-    rigidbody_entities.extend(collider_entities);
-    rigidbody_entities.sort();
-    rigidbody_entities.dedup();
+        rigidbody_entities = world
+            .get_entities_with_component::<RigidBody>()
+            .into_iter()
+            .copied()
+            .collect::<Vec<Entity>>();
+    }
 
     for rigidbody_entity in rigidbody_entities {
-        update_rb(physics_info, world, rigidbody_entity, transform_offset);
+        let mut new_path = entity_path.clone();
+        new_path.add_parent_to_end(rigidbody_entity);
 
+        update_rb(
+            physics_info,
+            global_world,
+            new_path.clone(),
+            transform_offset,
+        );
+
+        let (world, rigidbody_entity) = new_path.access_entity_mut(global_world);
         // the entity should have a handle now
         if let Some(rb_handle) = world
             .try_get_components::<(RigidBodyHandle,)>(rigidbody_entity)
@@ -673,14 +679,24 @@ fn get_all_rigid_bodies_and_colliders(
         }
     }
 
-    let collider_entities = world
-        .get_entities_with_component::<Collider>()
-        .into_iter()
-        .copied()
-        .collect::<Vec<Entity>>();
-    for collider_entity in collider_entities {
-        update_collider(physics_info, world, collider_entity);
+    let collider_entities;
+    {
+        let world = entity_path.access_entities_and_components_mut(global_world);
 
+        collider_entities = world
+            .get_entities_with_component::<Collider>()
+            .into_iter()
+            .copied()
+            .collect::<Vec<Entity>>();
+    }
+
+    for collider_entity in collider_entities {
+        let mut new_path = entity_path.clone();
+        new_path.add_parent_to_end(collider_entity);
+
+        update_collider(physics_info, global_world, new_path);
+
+        let world = entity_path.access_entities_and_components_mut(global_world);
         // the entity should have a handle now
         if let Some(collider_handle) = world
             .try_get_components::<(ColliderHandle,)>(collider_entity)
@@ -690,14 +706,20 @@ fn get_all_rigid_bodies_and_colliders(
         }
     }
 
-    // recursively get all children
-    let entities_with_children = world
-        .get_entities_with_component::<EntitiesAndComponents>()
-        .into_iter()
-        .copied()
-        .collect::<Vec<Entity>>();
+    let entities_with_children;
+    {
+        let world = entity_path.access_entities_and_components_mut(global_world);
+
+        // recursively get all children
+        entities_with_children = world
+            .get_entities_with_component::<EntitiesAndComponents>()
+            .into_iter()
+            .copied()
+            .collect::<Vec<Entity>>();
+    }
 
     for entity in entities_with_children {
+        let world = entity_path.access_entities_and_components_mut(global_world);
         let (children, transform) =
             world.try_get_components_mut::<(EntitiesAndComponents, Transform)>(entity);
 
@@ -706,9 +728,13 @@ fn get_all_rigid_bodies_and_colliders(
             transform_offset = &*transform + &transform_offset;
         }
 
+        let mut new_path = entity_path.clone();
+        new_path.add_parent_to_end(entity);
+
         get_all_rigid_bodies_and_colliders(
             physics_info,
-            children.expect("failed to get children, this is a bug"),
+            global_world,
+            new_path,
             rb_handles_found,
             collider_handles_found,
             transform_offset,
@@ -717,7 +743,7 @@ fn get_all_rigid_bodies_and_colliders(
 }
 
 fn handle_removed_entities(
-    world: &mut EntitiesAndComponents,
+    global_world: &mut EntitiesAndComponents,
     physics_info: &mut RapierPhysicsInfo,
     rb_handles_found: &mut Vec<RigidBodyHandle>,
     collider_handles_found: &mut Vec<ColliderHandle>,
@@ -742,9 +768,11 @@ fn handle_removed_entities(
 
             physics_info.rigid_body_handle_map.remove(&rb_handle);
 
+            let (rb_world, rb_entity) = rb_entity.access_entity_mut(global_world);
+
             // make sure the rb_handle is removed from the entity
-            if world.does_entity_exist(rb_entity) {
-                world.remove_component_from::<RigidBodyHandle>(rb_entity);
+            if rb_world.does_entity_exist(rb_entity) {
+                rb_world.remove_component_from::<RigidBodyHandle>(rb_entity);
             }
         }
 
@@ -754,7 +782,7 @@ fn handle_removed_entities(
             collider_entities_in_physics.remove(&collider_handle);
         }
 
-        for (collider_handle, collider_entity) in collider_entities_in_physics {
+        for (collider_handle, collider_path) in collider_entities_in_physics {
             physics_info.collider_set.remove(
                 collider_handle.0,
                 &mut physics_info.island_manager,
@@ -764,9 +792,11 @@ fn handle_removed_entities(
 
             physics_info.collider_handle_map.remove(&collider_handle);
 
+            let (collider_world, collider_entity) = collider_path.access_entity_mut(global_world);
+
             // make sure the collider_handle is removed from the entity
-            if world.does_entity_exist(collider_entity) {
-                world.remove_component_from::<ColliderHandle>(collider_entity);
+            if collider_world.does_entity_exist(collider_entity) {
+                collider_world.remove_component_from::<ColliderHandle>(collider_entity);
             }
         }
     }
@@ -775,12 +805,12 @@ fn handle_removed_entities(
 /// this fn promises to not access the physics info in any way other than the given reference
 fn update_rb(
     physics_info: &mut RapierPhysicsInfo,
-    world: &mut EntitiesAndComponents,
-    rigidbody_entity: Entity,
-    //out_rigid_body_set: &mut RigidBodySet,
-    //out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, Entity>,
+    global_world: &mut EntitiesAndComponents,
+    rb_path: EntityPath,
     transform_offset: Transform,
 ) {
+    let (world, rigidbody_entity) = rb_path.access_entity_mut(global_world);
+
     let (rigidbody, transform, rigidbody_handle) =
         world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(rigidbody_entity);
 
@@ -802,7 +832,7 @@ fn update_rb(
                 rigidbody.copy_from(&ecs_rigidbody.clone());
             } else {
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
-                    rigidbody_entity,
+                    rb_path,
                     &ecs_rigidbody,
                     Some(&rigidbody_handle),
                     out_rigid_body_set,
@@ -819,7 +849,7 @@ fn update_rb(
             // if the rigidbody doesn't have a handle, insert it into the set, and add a handle to the entity
 
             let (new_rb_handle, rb_handle_changed) = add_new_rb(
-                rigidbody_entity,
+                rb_path,
                 &ecs_rigidbody,
                 None,
                 out_rigid_body_set,
@@ -837,11 +867,11 @@ fn update_rb(
 }
 
 fn add_new_rb(
-    entity: Entity,
+    entity: EntityPath,
     rigidbody: &RigidBody,
     old_rb_handle: Option<&RigidBodyHandle>,
     out_rigid_body_set: &mut RigidBodySet,
-    out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, Entity>,
+    out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, EntityPath>,
     transform: Transform,
 ) -> (RigidBodyHandle, RBHandleChanged) {
     let mut rigidbody = rigidbody.clone();
@@ -862,9 +892,11 @@ fn add_new_rb(
 
 fn update_collider(
     physics_info: &mut RapierPhysicsInfo,
-    world: &mut EntitiesAndComponents,
-    entity: Entity,
+    global_world: &mut EntitiesAndComponents,
+    entity_path: EntityPath,
 ) {
+    let (world, entity) = entity_path.access_entity_mut(global_world);
+
     let (collider, transform, collider_handle, rb_handle, handle_has_changed) = world
         .try_get_components_mut::<(
             Collider,
@@ -891,7 +923,7 @@ fn update_collider(
         (Some(ecs_collider), Some(_), Some(collider_handle)) => {
             if let Some(_) = handle_has_changed {
                 let new_collider_handle = add_new_collider(
-                    entity,
+                    entity_path,
                     ecs_collider,
                     rb_handle,
                     rigid_body_set,
@@ -911,7 +943,7 @@ fn update_collider(
                 } else {
                     // this means the handle is invalid, so we should insert the collider into the set
                     let new_collider_handle = add_new_collider(
-                        entity,
+                        entity_path,
                         ecs_collider,
                         rb_handle,
                         rigid_body_set,
@@ -926,7 +958,7 @@ fn update_collider(
         (Some(collider), Some(_), None) => {
             // if the collider doesn't have a handle, insert it into the set, and add a handle to the entity
             let new_collider_handle = add_new_collider(
-                entity,
+                entity_path,
                 collider,
                 rb_handle,
                 rigid_body_set,
@@ -944,12 +976,12 @@ fn update_collider(
 
 /// This function adds a new collider to the world and adds a handle to the entity
 fn add_new_collider(
-    entity: Entity,
+    entity: EntityPath,
     collider: &Collider,
     rb_handle: Option<&RigidBodyHandle>,
     rigid_body_set: &mut RigidBodySet,
     collider_set: &mut ColliderSet,
-    out_collider_entity_map: &mut std::collections::HashMap<ColliderHandle, Entity>,
+    out_collider_entity_map: &mut std::collections::HashMap<ColliderHandle, EntityPath>,
 ) -> ColliderHandle {
     let collider = collider.clone();
 
@@ -1093,3 +1125,101 @@ let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
 let ball_body_handle = rigid_body_set.insert(rigid_body);
 collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
 */
+
+/// specifies a path to an entity, unlike an entity this can specify a child entity
+/// call access_entity to get the entity and the parent entity
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EntityPath {
+    /// starts with the first parent entity and ends with the entity itself
+    path: Vec<Entity>,
+}
+
+impl EntityPath {
+    fn new() -> EntityPath {
+        EntityPath { path: vec![] }
+    }
+
+    fn add_parent_to_end(&mut self, parent: Entity) {
+        self.path.push(parent);
+    }
+
+    pub fn access_entity<'a>(
+        &self,
+        world: &'a EntitiesAndComponents,
+    ) -> (&'a EntitiesAndComponents, Entity) {
+        let mut current_entities_and_components = world;
+
+        let mut path = self.path.clone();
+        let last_entity = path.pop().expect("the path is empty");
+
+        for entity in path {
+            let (children,) = current_entities_and_components
+                .try_get_components::<(EntitiesAndComponents,)>(entity);
+
+            current_entities_and_components =
+                children.expect("failed to get children and transform, this is a bug");
+        }
+
+        (current_entities_and_components, last_entity)
+    }
+
+    pub fn access_entity_mut<'a>(
+        &self,
+        world: &'a mut EntitiesAndComponents,
+    ) -> (&'a mut EntitiesAndComponents, Entity) {
+        let mut current_entities_and_components = world;
+
+        let mut path = self.path.clone();
+        let last_entity = path.pop().expect("the path is empty");
+
+        for entity in path {
+            let (children,) = current_entities_and_components
+                .try_get_components_mut::<(EntitiesAndComponents,)>(entity);
+
+            current_entities_and_components =
+                children.expect("failed to get children and transform, this is a bug");
+        }
+
+        (current_entities_and_components, last_entity)
+    }
+
+    pub fn access_entities_and_components_mut<'a>(
+        &self,
+        world: &'a mut EntitiesAndComponents,
+    ) -> &'a mut EntitiesAndComponents {
+        let mut current_entities_and_components = world;
+
+        let mut path = self.path.clone();
+        //path.pop(); // remove the last entity
+
+        for entity in path {
+            let (children,) = current_entities_and_components
+                .try_get_components_mut::<(EntitiesAndComponents,)>(entity);
+
+            current_entities_and_components =
+                children.expect("failed to get children and transform, this is a bug");
+        }
+
+        current_entities_and_components
+    }
+
+    pub fn does_exist(&self, world: &EntitiesAndComponents) -> bool {
+        let mut current_entities_and_components = world;
+
+        let mut path = self.path.clone();
+        let last_entity = path.pop().expect("the path is empty");
+
+        for entity in path {
+            let (children,) = current_entities_and_components
+                .try_get_components::<(EntitiesAndComponents,)>(entity);
+
+            if let Some(children) = children {
+                current_entities_and_components = children;
+            } else {
+                return false;
+            }
+        }
+
+        current_entities_and_components.does_entity_exist(last_entity)
+    }
+}
