@@ -579,7 +579,6 @@ impl System for RapierPhysicsSystem {
             );
 
             handle_removed_entities(
-                entities_and_components,
                 physics_info,
                 &mut rb_handles_found_this_frame,
                 &mut collider_handles_found_this_frame,
@@ -743,7 +742,6 @@ fn get_all_rigid_bodies_and_colliders(
 }
 
 fn handle_removed_entities(
-    global_world: &mut EntitiesAndComponents,
     physics_info: &mut RapierPhysicsInfo,
     rb_handles_found: &mut Vec<RigidBodyHandle>,
     collider_handles_found: &mut Vec<ColliderHandle>,
@@ -767,19 +765,12 @@ fn handle_removed_entities(
             );
 
             physics_info.rigid_body_handle_map.remove(&rb_handle);
-
-            let (rb_world, rb_entity) = rb_entity.access_entity_mut(global_world);
-
-            // make sure the rb_handle is removed from the entity
-            if rb_world.does_entity_exist(rb_entity) {
-                rb_world.remove_component_from::<RigidBodyHandle>(rb_entity);
-            }
         }
 
         let mut collider_entities_in_physics_copy = physics_info.collider_handle_map.clone();
 
         for collider_handle in collider_handles_found.clone() {
-            let entity_that_does_exist = collider_entities_in_physics_copy.remove(&collider_handle);
+            collider_entities_in_physics_copy.remove(&collider_handle);
         }
 
         for (collider_handle, collider_path) in collider_entities_in_physics_copy {
@@ -791,13 +782,6 @@ fn handle_removed_entities(
             );
 
             physics_info.collider_handle_map.remove(&collider_handle);
-
-            let (collider_world, collider_entity) = collider_path.access_entity_mut(global_world);
-
-            // make sure the collider_handle is removed from the entity
-            if collider_world.does_entity_exist(collider_entity) {
-                collider_world.remove_component_from::<ColliderHandle>(collider_entity);
-            }
         }
     }
 }
@@ -831,9 +815,6 @@ fn update_rb(
 
                 rigidbody.copy_from(&ecs_rigidbody.clone());
             } else {
-                // remove the old handle from the entity map
-                out_rigid_body_entity_map.remove(&rigidbody_handle);
-
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
                     &ecs_rigidbody,
@@ -885,7 +866,7 @@ fn add_new_rb(
 
     // remove the old handle from the entity
     if let Some(rigidbody_handle) = old_rb_handle {
-        out_rigid_body_entity_map.remove(&rigidbody_handle);
+        //out_rigid_body_entity_map.remove(&rigidbody_handle);
     }
     // add new one to the map
     out_rigid_body_entity_map.insert(RigidBodyHandle(new_rb_handle), entity);
@@ -917,9 +898,6 @@ fn update_collider(
     match (collider, transform, collider_handle) {
         (Some(ecs_collider), Some(_), Some(collider_handle)) => {
             if let Some(_) = handle_has_changed {
-                // remove the old handle from the entity
-                out_collider_entity_map.remove(&collider_handle);
-
                 let new_collider_handle = add_new_collider(
                     entity_path,
                     ecs_collider,
@@ -940,9 +918,6 @@ fn update_collider(
                 if let Some(collider) = collider {
                     collider.copy_from(&ecs_collider.clone());
                 } else {
-                    // remove the old handle from the entity
-                    out_collider_entity_map.remove(&collider_handle);
-
                     // this means the handle is invalid, so we should insert the collider into the set
                     let new_collider_handle = add_new_collider(
                         entity_path,
@@ -1176,8 +1151,7 @@ impl EntityPath {
     ) -> &'a mut EntitiesAndComponents {
         let mut current_entities_and_components = world;
 
-        let mut path = self.path.clone();
-        //path.pop(); // remove the last entity
+        let path = self.path.clone();
 
         for entity in path {
             let (children,) = current_entities_and_components
