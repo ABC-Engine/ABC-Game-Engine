@@ -530,13 +530,12 @@ impl RapierPhysicsSystem {
             &physics_info.physics_hooks,
             &physics_info.event_handler,
         );
-
-        query_pipeline.update(&physics_info.rigid_body_set, &physics_info.collider_set);
     }
 }
 
 impl System for RapierPhysicsSystem {
     fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let is_fixed_timestep;
         {
             let physics_info = entities_and_components
                 .get_resource_mut::<RapierPhysicsInfo>()
@@ -547,8 +546,9 @@ impl System for RapierPhysicsSystem {
             let time_since_last_step = time_started.elapsed() - *time_elapsed_before_this_frame;
             if time_since_last_step.as_secs_f64() >= 1.0 / 60.0 {
                 *time_elapsed_before_this_frame = time_started.elapsed();
+                is_fixed_timestep = true;
             } else {
-                return;
+                is_fixed_timestep = false;
             }
         }
 
@@ -585,11 +585,23 @@ impl System for RapierPhysicsSystem {
             );
         }
 
-        self.step(entities_and_components);
+        if is_fixed_timestep {
+            self.step(entities_and_components);
+        }
+
+        {
+            let physics_info = &mut entities_and_components
+                .get_resource_mut::<RapierPhysicsInfo>()
+                .expect("failed to get rapier physics info, report this as a bug");
+
+            let query_pipeline = &mut physics_info.query_pipeline;
+            query_pipeline.update(&physics_info.rigid_body_set, &physics_info.collider_set);
+        }
 
         // if anything is changed between the physics system and the set_all_rigid_bodies_and_colliders call, it will break it don't do that
 
-        {
+        // it's not that this is a bad idea, it's just that it's not necessary so no need to waste performance unless a step is taken
+        if is_fixed_timestep {
             let physics_info;
             {
                 let physics_info_ref = entities_and_components
