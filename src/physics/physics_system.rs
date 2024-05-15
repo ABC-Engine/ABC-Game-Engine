@@ -694,9 +694,9 @@ fn get_all_rigid_bodies_and_colliders(
         let mut new_path = entity_path.clone();
         new_path.add_parent_to_end(collider_entity);
 
-        update_collider(physics_info, global_world, new_path);
+        update_collider(physics_info, global_world, new_path.clone());
 
-        let world = entity_path.access_entities_and_components_mut(global_world);
+        let (world, collider_entity) = new_path.access_entity_mut(global_world);
         // the entity should have a handle now
         if let Some(collider_handle) = world
             .try_get_components::<(ColliderHandle,)>(collider_entity)
@@ -776,13 +776,13 @@ fn handle_removed_entities(
             }
         }
 
-        let mut collider_entities_in_physics = physics_info.collider_handle_map.clone();
+        let mut collider_entities_in_physics_copy = physics_info.collider_handle_map.clone();
 
-        for collider_handle in collider_handles_found {
-            collider_entities_in_physics.remove(&collider_handle);
+        for collider_handle in collider_handles_found.clone() {
+            let entity_that_does_exist = collider_entities_in_physics_copy.remove(&collider_handle);
         }
 
-        for (collider_handle, collider_path) in collider_entities_in_physics {
+        for (collider_handle, collider_path) in collider_entities_in_physics_copy {
             physics_info.collider_set.remove(
                 collider_handle.0,
                 &mut physics_info.island_manager,
@@ -831,6 +831,9 @@ fn update_rb(
 
                 rigidbody.copy_from(&ecs_rigidbody.clone());
             } else {
+                // remove the old handle from the entity map
+                out_rigid_body_entity_map.remove(&rigidbody_handle);
+
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
                     &ecs_rigidbody,
@@ -898,21 +901,13 @@ fn update_collider(
     let (world, entity) = entity_path.access_entity_mut(global_world);
 
     let (collider, transform, collider_handle, rb_handle, handle_has_changed) = world
-        .try_get_components_mut::<(
+        .try_get_components::<(
             Collider,
             Transform,
             ColliderHandle,
             RigidBodyHandle,
             RBHandleChanged,
         )>(entity);
-
-    let (collider, transform, collider_handle, rb_handle, handle_has_changed) = (
-        collider.as_deref(),
-        transform.as_deref(),
-        collider_handle.as_deref(),
-        rb_handle.as_deref(),
-        handle_has_changed.as_deref(),
-    );
 
     let collider_set = &mut physics_info.collider_set;
     let rigid_body_set = &mut physics_info.rigid_body_set;
@@ -922,6 +917,9 @@ fn update_collider(
     match (collider, transform, collider_handle) {
         (Some(ecs_collider), Some(_), Some(collider_handle)) => {
             if let Some(_) = handle_has_changed {
+                // remove the old handle from the entity
+                out_collider_entity_map.remove(&collider_handle);
+
                 let new_collider_handle = add_new_collider(
                     entity_path,
                     ecs_collider,
@@ -930,6 +928,7 @@ fn update_collider(
                     collider_set,
                     out_collider_entity_map,
                 );
+
                 // add a handle to the collider to the entity
                 world.add_component_to(entity, new_collider_handle);
                 world.remove_component_from::<RBHandleChanged>(entity);
@@ -941,6 +940,9 @@ fn update_collider(
                 if let Some(collider) = collider {
                     collider.copy_from(&ecs_collider.clone());
                 } else {
+                    // remove the old handle from the entity
+                    out_collider_entity_map.remove(&collider_handle);
+
                     // this means the handle is invalid, so we should insert the collider into the set
                     let new_collider_handle = add_new_collider(
                         entity_path,
@@ -950,6 +952,7 @@ fn update_collider(
                         collider_set,
                         out_collider_entity_map,
                     );
+
                     // add a handle to the collider to the entity
                     world.add_component_to(entity, new_collider_handle);
                 }
@@ -965,6 +968,7 @@ fn update_collider(
                 collider_set,
                 out_collider_entity_map,
             );
+
             // add a handle to the collider to the entity
             world.add_component_to(entity, new_collider_handle);
         }
@@ -1108,23 +1112,6 @@ fn update_abc_transform_from_rapier_transform(
     transform.y = rapier_transform.translation.y as f64 - offset.y;
     transform.rotation = rapier_transform.rotation.angle() as f64 - offset.rotation;
 }
-
-/*
-let mut rigid_body_set = RigidBodySet::new();
-let mut collider_set = ColliderSet::new();
-
-/* Create the ground. */
-let collider = ColliderBuilder::cuboid(100.0, 0.1).build();
-collider_set.insert(collider);
-
-/* Create the bouncing ball. */
-let rigid_body = RigidBodyBuilder::dynamic()
-    .translation(vector![0.0, 10.0])
-    .build();
-let collider = ColliderBuilder::ball(0.5).restitution(0.7).build();
-let ball_body_handle = rigid_body_set.insert(rigid_body);
-collider_set.insert_with_parent(collider, ball_body_handle, &mut rigid_body_set);
-*/
 
 /// specifies a path to an entity, unlike an entity this can specify a child entity
 /// call access_entity to get the entity and the parent entity
