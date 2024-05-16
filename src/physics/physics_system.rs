@@ -829,7 +829,7 @@ fn update_rb(
             } else {
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
-                    &ecs_rigidbody,
+                    ecs_rigidbody,
                     Some(&rigidbody_handle),
                     out_rigid_body_set,
                     out_rigid_body_entity_map,
@@ -846,7 +846,7 @@ fn update_rb(
 
             let (new_rb_handle, rb_handle_changed) = add_new_rb(
                 rb_path,
-                &ecs_rigidbody,
+                ecs_rigidbody,
                 None,
                 out_rigid_body_set,
                 out_rigid_body_entity_map,
@@ -864,22 +864,17 @@ fn update_rb(
 
 fn add_new_rb(
     entity: EntityPath,
-    rigidbody: &RigidBody,
+    rigidbody: &mut RigidBody,
     old_rb_handle: Option<&RigidBodyHandle>,
     out_rigid_body_set: &mut RigidBodySet,
     out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, EntityPath>,
     transform: Transform,
 ) -> (RigidBodyHandle, RBHandleChanged) {
-    let mut rigidbody = rigidbody.clone();
-    rigidbody.set_position(abc_transform_to_rapier_transform(transform), false);
+    rigidbody.set_position(abc_transform_to_rapier_transform(transform), true);
 
-    // this means the handle is invalid, so we should insert the rigidbody into the set
+    // insert the rigidbody into the set
     let new_rb_handle = out_rigid_body_set.insert(rigidbody.clone());
 
-    // remove the old handle from the entity
-    if let Some(rigidbody_handle) = old_rb_handle {
-        //out_rigid_body_entity_map.remove(&rigidbody_handle);
-    }
     // add new one to the map
     out_rigid_body_entity_map.insert(RigidBodyHandle(new_rb_handle), entity);
 
@@ -988,7 +983,6 @@ fn add_new_collider(
 }
 
 /// This function updates the transforms of all rigid bodies and colliders in the world
-/// it uses the same logic as get_all_rigid_bodies_and_colliders, but instead of inserting into the sets, it updates the transforms
 fn set_all_rigid_bodies_and_colliders(
     physics_info: &RapierPhysicsInfo,
     current_world: &mut EntitiesAndComponents,
@@ -997,88 +991,45 @@ fn set_all_rigid_bodies_and_colliders(
     let rigid_body_set = &physics_info.rigid_body_set;
     let collider_set = &physics_info.collider_set;
 
-    {
-        // we have to do this dance to avoid borrowing issues...
-        let rigidbody_entities = current_world
-            .get_entities_with_component::<RigidBodyHandle>()
-            .into_iter()
-            .copied()
-            .collect::<Vec<Entity>>();
-        for rigidbody_entity in rigidbody_entities {
-            let (rigidbody, transform, rigidbody_handle) =
-                current_world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(
-                    rigidbody_entity,
+    for (rb_handle, entity_path) in physics_info.rigid_body_handle_map.iter() {
+        let (world, entity) = entity_path.access_entity_mut(current_world);
+
+        let (rigidbody, transform, rigidbody_handle) =
+            world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(entity);
+
+        match (rigidbody, transform, rigidbody_handle) {
+            (Some(ecs_rigidbody), Some(transform), Some(rigidbody_handle)) => {
+                let rigidbody = rigid_body_set.get(rigidbody_handle.0).expect("failed to get rigidbody from handle found in entity, please report this as a bug on abc game engine github page");
+                update_abc_transform_from_rapier_transform(
+                    transform,
+                    transform_offset,
+                    *rigidbody.position(),
                 );
 
-            match (rigidbody, transform, rigidbody_handle) {
-                (Some(ecs_rigidbody), Some(transform), Some(rigidbody_handle)) => {
-                    let rigidbody = rigid_body_set.get(rigidbody_handle.0).expect("failed to get rigidbody from handle found in entity, please report this as a bug on abc game engine github page");
-                    update_abc_transform_from_rapier_transform(
-                        transform,
-                        transform_offset,
-                        *rigidbody.position(),
-                    );
-
-                    *ecs_rigidbody = rigidbody.clone();
-                }
-                _ => {
-                    // log warning that rigidbody is missing transform
-                }
+                *ecs_rigidbody = rigidbody.clone();
+            }
+            _ => {
+                // log warning that rigidbody is missing transform
             }
         }
     }
 
-    {
-        // we have to do this dance to avoid borrowing issues...
-        let collider_entities = current_world
-            .get_entities_with_component::<Collider>()
-            .into_iter()
-            .copied()
-            .collect::<Vec<Entity>>();
+    for (collider_handle, entity_path) in physics_info.collider_handle_map.iter() {
+        let (world, entity) = entity_path.access_entity_mut(current_world);
 
-        for collider_entity in collider_entities {
-            let (collider, transform, collider_handle) =
-                current_world.try_get_components_mut::<(Collider, Transform, ColliderHandle)>(
-                    collider_entity,
-                );
-            if let (Some(ecs_collider), Some(transform), Some(collider_handle)) =
-                (collider, transform, collider_handle)
-            {
-                let collider = collider_set
-                    .get(
-                        collider_handle
-                            .0,
-                    ).expect("failed to get collider from handle found in entity, please report this as a bug");
+        let (collider, transform, collider_handle) =
+            world.try_get_components_mut::<(Collider, Transform, ColliderHandle)>(entity);
+        if let (Some(ecs_collider), Some(transform), Some(collider_handle)) =
+            (collider, transform, collider_handle)
+        {
+            let collider = collider_set.get(collider_handle.0).expect(
+                "failed to get collider from handle found in entity, please report this as a bug",
+            );
 
-                *ecs_collider = collider.clone();
-            } else {
-                // log warning that collider is missing transform
-            }
+            *ecs_collider = collider.clone();
+        } else {
+            // log warning that collider is missing transform
         }
-    }
-
-    // recursively get all children
-    // we have to do this dance to avoid borrowing issues...
-    let entities_with_children = current_world
-        .get_entities_with_component::<EntitiesAndComponents>()
-        .into_iter()
-        .copied()
-        .collect::<Vec<Entity>>();
-
-    for entity in entities_with_children {
-        let (children, transform) =
-            current_world.try_get_components_mut::<(EntitiesAndComponents, Transform)>(entity);
-
-        let mut transform_offset = transform_offset;
-        if let Some(transform) = transform {
-            transform_offset = &*transform + &transform_offset;
-        }
-
-        set_all_rigid_bodies_and_colliders(
-            physics_info,
-            children.expect("failed to get children, this is a bug"),
-            transform_offset,
-        );
     }
 }
 
