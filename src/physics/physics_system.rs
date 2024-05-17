@@ -415,16 +415,14 @@ impl RapierPhysicsInfo {
     /// * `callback` - A function called with the handles of each collider intersecting the `shape`.
     pub fn intersections_with_shape(
         &self,
-        bodies: &RigidBodySet,
-        colliders: &ColliderSet,
         shape_pos: &Isometry<Real>,
         shape: &dyn Shape,
         filter: QueryFilter,
         mut callback: impl FnMut(EntityPath) -> bool,
     ) {
         self.query_pipeline.intersections_with_shape(
-            bodies,
-            colliders,
+            &self.rigid_body_set,
+            &self.collider_set,
             shape_pos,
             shape,
             filter,
