@@ -3,7 +3,8 @@ use ABC_ECS::Resource;
 pub struct DeltaTime {
     start: std::time::Instant,
     last_frame_time: std::time::Duration,
-    pub delta_time: f64,
+    delta_time: f64,
+    time_scale: f64,
 }
 
 impl DeltaTime {
@@ -15,7 +16,20 @@ impl DeltaTime {
             start,
             last_frame_time,
             delta_time,
+            time_scale: 1.0,
         }
+    }
+
+    pub fn set_time_scale(&mut self, time_scale: f64) {
+        self.time_scale = time_scale;
+    }
+
+    pub fn get_time_scale(&self) -> f64 {
+        self.time_scale
+    }
+
+    pub fn get_delta_time(&self) -> f64 {
+        self.delta_time * self.time_scale
     }
 }
 

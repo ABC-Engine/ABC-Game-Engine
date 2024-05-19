@@ -1,6 +1,8 @@
+use std::f64::consts::PI;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use rapier2d::na::ComplexField;
 use rapier2d::parry::query::NonlinearRigidMotion;
 pub use rapier2d::prelude::ColliderHandle as RapierColliderHandle;
 pub use rapier2d::prelude::RigidBodyHandle as RapierRigidBodyHandle;
@@ -10,6 +12,7 @@ use ABC_ECS::Entity;
 use ABC_ECS::Resource;
 use ABC_ECS::System;
 
+use crate::delta_time;
 use crate::Transform;
 
 /// created with the rapier physics system do not create this manually
@@ -550,6 +553,19 @@ impl System for RapierPhysicsSystem {
             }
         }
 
+        // set the delta time scale
+        {
+            let delta_time_scale = entities_and_components
+                .get_resource::<delta_time::DeltaTime>()
+                .expect("failed to get delta time, report this as a bug")
+                .get_time_scale();
+
+            let physics_info = entities_and_components
+                .get_resource_mut::<RapierPhysicsInfo>()
+                .expect("failed to get rapier physics info, report this as a bug");
+            physics_info.integration_parameters.dt = (1.0 / 60.0) * delta_time_scale as f32;
+        }
+
         {
             let physics_info;
             {
@@ -817,13 +833,13 @@ fn update_rb(
             // get the rigidbody from the handle
             let rigidbody = out_rigid_body_set.get_mut(rigidbody_handle.0);
             if let Some(rigidbody) = rigidbody {
+                rigidbody.copy_from(&ecs_rigidbody.clone());
+
                 // update the rigidbody transform
                 rigidbody.set_position(
                     abc_transform_to_rapier_transform(&*transform + &transform_offset),
                     false,
                 );
-
-                rigidbody.copy_from(&ecs_rigidbody.clone());
             } else {
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
@@ -1032,10 +1048,11 @@ fn set_all_rigid_bodies_and_colliders(
 }
 
 fn abc_transform_to_rapier_transform(transform: Transform) -> Isometry<Real> {
-    Isometry::new(
+    let new_transform = Isometry::new(
         vector![transform.x as f32, transform.y as f32],
         transform.rotation as f32,
-    )
+    );
+    new_transform
 }
 
 fn update_abc_transform_from_rapier_transform(
