@@ -5,7 +5,10 @@ mod test;
 
 pub use resources::*;
 pub use resources::{delta_time, input};
-pub use ABC_ECS::{Component, EntitiesAndComponents, Entity, Resource, System, World};
+pub use ABC_ECS::{
+    Component, EntitiesAndComponents, EntitiesAndComponentsThreadSafe, Entity, Resource,
+    SingleMutEntity, System, World,
+};
 pub mod physics;
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
@@ -23,8 +26,8 @@ pub struct Transform {
     pub origin_y: f32,
 }
 
-impl Transform {
-    pub fn default() -> Transform {
+impl Default for Transform {
+    fn default() -> Transform {
         Transform {
             x: 0.0,
             y: 0.0,
@@ -35,7 +38,9 @@ impl Transform {
             origin_y: 0.0,
         }
     }
+}
 
+impl Transform {
     /// returns the distance between two transforms
     pub fn distance_to(&self, other: &Transform) -> f64 {
         let x = self.x - other.x;

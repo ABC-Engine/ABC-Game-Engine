@@ -4,6 +4,7 @@ pub struct DeltaTime {
     start: std::time::Instant,
     last_frame_time: std::time::Duration,
     delta_time: f64,
+    correctional_delta_time: f64, // This is used to correct the delta time for when the time scale is changed mid-frame
     time_scale: f64,
 }
 
@@ -17,10 +18,15 @@ impl DeltaTime {
             last_frame_time,
             delta_time,
             time_scale: 1.0,
+            correctional_delta_time: 0.0,
         }
     }
 
     pub fn set_time_scale(&mut self, time_scale: f64) {
+        // probably won't happen but += in case the time scale is changed multiple times in a frame
+        self.correctional_delta_time += self.delta_time * self.time_scale;
+        self.delta_time = 0.0;
+
         self.time_scale = time_scale;
     }
 
@@ -29,7 +35,7 @@ impl DeltaTime {
     }
 
     pub fn get_delta_time(&self) -> f64 {
-        self.delta_time * self.time_scale
+        (self.delta_time * self.time_scale) + self.correctional_delta_time
     }
 }
 
@@ -37,8 +43,7 @@ impl Resource for DeltaTime {
     fn update(&mut self) {
         let current_frame_time = self.start.elapsed();
         self.delta_time = (current_frame_time - self.last_frame_time).as_secs_f64();
-
-        // Do something with delta_time...
+        self.correctional_delta_time = 0.0;
 
         self.last_frame_time = current_frame_time;
     }

@@ -246,8 +246,8 @@ impl AudioHandle {
             .entry(name.to_string())
             .or_insert_with(|| ParellelSink::new());
 
-        sink.set_volume(volume);
-        sink.set_speed(speed);
+        sink.set_volume(volume * self.master_volume);
+        sink.set_speed(speed * self.master_speed);
         sink.append(audio_file.file.convert_samples::<f32>(), &self.handle);
     }
 
@@ -259,8 +259,8 @@ impl AudioHandle {
             .entry(name.to_string())
             .or_insert_with(|| ParellelSink::new());
 
-        sink.set_volume(volume);
-        sink.set_speed(speed);
+        sink.set_volume(volume * self.master_volume);
+        sink.set_speed(speed * self.master_speed);
         for audio_file in audio_files {
             sink.append(audio_file.file.convert_samples::<f32>(), &self.handle);
         }
@@ -283,8 +283,8 @@ impl AudioHandle {
             .entry(name.to_string())
             .or_insert_with(|| ParellelSink::new());
 
-        sink.set_volume(volume);
-        sink.set_speed(speed);
+        sink.set_volume(volume * self.master_volume);
+        sink.set_speed(speed * self.master_speed);
         sink.append(
             audio_file.file.convert_samples::<f32>().repeat_infinite(),
             &self.handle,
