@@ -59,6 +59,10 @@ impl AudioBus {
         }
     }
 
+    pub fn get_volume_without_parent(&self) -> f32 {
+        self.volume
+    }
+
     pub fn set_speed(&mut self, speed: f32) {
         self.speed = speed;
     }
@@ -295,8 +299,15 @@ impl AudioHandle {
         self.buses.insert(bus.name.clone(), bus);
     }
 
-    pub fn get_bus(&self, bus: &str) -> &AudioBus {
-        self.buses.get(bus).expect("Bus not found")
+    pub fn get_bus(&self, bus: &str) -> Option<&AudioBus> {
+        self.buses.get(bus)
+    }
+
+    /// gets the bus with the given name or creates a new one if it doesn't exist
+    pub fn get_or_make_bus(&mut self, bus: &str) -> &mut AudioBus {
+        self.buses
+            .entry(bus.to_string())
+            .or_insert_with(|| AudioBus::new(bus))
     }
 
     pub fn add_bus_to_bus(&mut self, mut new_bus: AudioBus, parent_bus: &str) {
