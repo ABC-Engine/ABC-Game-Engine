@@ -314,6 +314,11 @@ impl AudioHandle {
         new_bus.parent = Some(parent_bus.to_string());
         self.buses.insert(new_bus.name.clone(), new_bus.clone());
     }
+
+    pub fn drop_all_sounds(&mut self) {
+        self.sink.sinks.clear();
+        self.sinks.clear();
+    }
 }
 
 impl Resource for AudioHandle {
