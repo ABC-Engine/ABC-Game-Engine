@@ -191,6 +191,7 @@ pub struct AudioHandle {
     buses: FxHashMap<String, AudioBus>,
 }
 
+// every master volume is multiplied by 0.1 because the volume is WAY too loud
 impl AudioHandle {
     /// creates a new audio handle, which is used to play audio files
     pub(crate) fn new() -> Self {
@@ -198,7 +199,7 @@ impl AudioHandle {
         Self {
             handle: handle.clone(),
             _stream,
-            master_volume: 1.0,
+            master_volume: 0.1,
             master_speed: 1.0,
             sink: ParellelSink::new(),
             sinks: FxHashMap::default(),
@@ -232,7 +233,7 @@ impl AudioHandle {
     }
 
     pub fn set_master_volume(&mut self, volume: f32) {
-        self.master_volume = volume;
+        self.master_volume = volume * 0.1;
         self.sink.set_volume(volume);
     }
 

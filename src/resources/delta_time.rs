@@ -23,7 +23,7 @@ impl DeltaTime {
     }
 
     pub fn set_time_scale(&mut self, time_scale: f64) {
-        // probably won't happen but += in case the time scale is changed multiple times in a frame
+        // probably won't happen but just in case the time scale is changed multiple times in a frame
         self.correctional_delta_time += self.delta_time * self.time_scale;
         self.delta_time = 0.0;
 
