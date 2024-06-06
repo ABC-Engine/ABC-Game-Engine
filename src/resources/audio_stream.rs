@@ -1,11 +1,9 @@
 use fxhash::FxHashMap;
 use rodio::cpal::FromSample;
-use rodio::source::SamplesConverter;
+use rodio::Sample;
 use rodio::{source::Source, Decoder, OutputStream};
-use rodio::{OutputStreamHandle, Sample};
 use std::fs::File;
 use std::io::BufReader;
-use std::rc::Rc;
 use ABC_ECS::Resource;
 
 /// A struct that holds an audio file
@@ -63,10 +61,12 @@ impl AudioBus {
         self.volume
     }
 
+    /// 1.0 is normal speed
     pub fn set_speed(&mut self, speed: f32) {
         self.speed = speed;
     }
 
+    /// 1.0 is normal speed
     pub fn get_speed(&self, audio_handle: &AudioHandle) -> f32 {
         match self.parent {
             Some(ref parent) => {
@@ -171,11 +171,24 @@ impl ParellelSink {
         self.volume = volume;
     }
 
+    /// 1.0 is normal speed
     fn set_speed(&mut self, speed: f32) {
         for sink in &mut self.sinks {
             sink.set_speed(speed);
         }
         self.speed = speed;
+    }
+
+    fn pause(&mut self) {
+        for sink in &mut self.sinks {
+            sink.pause();
+        }
+    }
+
+    fn play(&mut self) {
+        for sink in &mut self.sinks {
+            sink.play();
+        }
     }
 }
 
@@ -235,10 +248,29 @@ impl AudioHandle {
     pub fn set_master_volume(&mut self, volume: f32) {
         self.master_volume = volume * 0.1;
         self.sink.set_volume(volume);
+
+        for sink in self.sinks.values_mut() {
+            sink.set_volume(volume);
+        }
     }
 
     pub fn get_master_volume(&self) -> f32 {
         self.master_volume
+    }
+
+    /// 1.0 is normal speed
+    pub fn set_master_speed(&mut self, speed: f32) {
+        self.master_speed = speed;
+        self.sink.set_speed(speed);
+
+        for sink in self.sinks.values_mut() {
+            sink.set_speed(speed);
+        }
+    }
+
+    /// 1.0 is normal speed
+    pub fn get_master_speed(&self) -> f32 {
+        self.master_speed
     }
 
     pub fn play_sound_on_bus(&mut self, audio_file: AudioFile, name: &str) {
@@ -319,6 +351,20 @@ impl AudioHandle {
     pub fn drop_all_sounds(&mut self) {
         self.sink.sinks.clear();
         self.sinks.clear();
+    }
+
+    pub fn pause(&mut self) {
+        self.sink.pause();
+        for sink in self.sinks.values_mut() {
+            sink.pause();
+        }
+    }
+
+    pub fn play(&mut self) {
+        self.sink.play();
+        for sink in self.sinks.values_mut() {
+            sink.play();
+        }
     }
 }
 

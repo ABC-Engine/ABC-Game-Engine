@@ -1496,7 +1496,8 @@ dependencies = [
 
 [[package]]
 name = "lumenpyx"
-version = "0.1.0"
+version = "0.2.1"
+source = "git+https://github.com/ABC-Engine/lumenpyx#58d7d21ddc175a832d110e895f0d2be5bc1e3524"
 dependencies = [
  "glium",
  "image",
