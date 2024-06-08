@@ -833,13 +833,13 @@ fn update_rb(
             // get the rigidbody from the handle
             let rigidbody = out_rigid_body_set.get_mut(rigidbody_handle.0);
             if let Some(rigidbody) = rigidbody {
-                rigidbody.copy_from(&ecs_rigidbody.clone());
-
-                // update the rigidbody transform
-                rigidbody.set_position(
+                // i think this is better than copying and then changing the non-ecs-rb
+                ecs_rigidbody.set_position(
                     abc_transform_to_rapier_transform(&*transform + &transform_offset),
                     false,
                 );
+
+                rigidbody.copy_from(&ecs_rigidbody.clone());
             } else {
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
@@ -1063,6 +1063,7 @@ fn update_abc_transform_from_rapier_transform(
     // we subtract the offset to get the local transform
     transform.x = rapier_transform.translation.x as f64 - offset.x;
     transform.y = rapier_transform.translation.y as f64 - offset.y;
+
     transform.rotation = rapier_transform.rotation.angle() as f64 - offset.rotation;
 }
 
