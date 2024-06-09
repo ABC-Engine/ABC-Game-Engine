@@ -6,6 +6,7 @@ pub struct DeltaTime {
     delta_time: f64,
     correctional_delta_time: f64, // This is used to correct the delta time for when the time scale is changed mid-frame
     time_scale: f64,
+    total_time: f64,
 }
 
 impl DeltaTime {
@@ -19,6 +20,7 @@ impl DeltaTime {
             delta_time,
             time_scale: 1.0,
             correctional_delta_time: 0.0,
+            total_time: 0.0,
         }
     }
 
@@ -37,6 +39,10 @@ impl DeltaTime {
     pub fn get_delta_time(&self) -> f64 {
         (self.delta_time * self.time_scale) + self.correctional_delta_time
     }
+
+    pub fn get_total_time(&self) -> f64 {
+        self.total_time
+    }
 }
 
 impl Resource for DeltaTime {
@@ -44,6 +50,8 @@ impl Resource for DeltaTime {
         let current_frame_time = self.start.elapsed();
         self.delta_time = (current_frame_time - self.last_frame_time).as_secs_f64();
         self.correctional_delta_time = 0.0;
+
+        self.total_time += self.delta_time * self.time_scale;
 
         self.last_frame_time = current_frame_time;
     }
