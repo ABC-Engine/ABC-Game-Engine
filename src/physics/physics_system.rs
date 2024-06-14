@@ -7,6 +7,7 @@ use rapier2d::parry::query::NonlinearRigidMotion;
 pub use rapier2d::prelude::ColliderHandle as RapierColliderHandle;
 pub use rapier2d::prelude::RigidBodyHandle as RapierRigidBodyHandle;
 use rapier2d::prelude::*;
+use tracing::Level;
 use ABC_ECS::EntitiesAndComponents;
 use ABC_ECS::Entity;
 use ABC_ECS::Resource;
@@ -14,6 +15,7 @@ use ABC_ECS::System;
 
 use crate::delta_time;
 use crate::Transform;
+use tracing::event;
 
 /// created with the rapier physics system do not create this manually
 /// this is a wrapper around the rapier physics pipeline that allows for easy access to the physics engine
@@ -872,6 +874,10 @@ fn update_rb(
         }
         _ => {
             // log warning that rigidbody is missing transform
+            event!(
+                Level::WARN,
+                "rigidbody is missing transform, the rigidbody will not be simulated without one"
+            );
         }
     }
 }
@@ -970,6 +976,10 @@ fn update_collider(
         }
         _ => {
             // log warning that collider is missing transform
+            event!(
+                Level::WARN,
+                "collider is missing transform, the collider will not be simulated without one"
+            );
         }
     }
 }
@@ -1024,6 +1034,10 @@ fn set_all_rigid_bodies_and_colliders(
             }
             _ => {
                 // log warning that rigidbody is missing transform
+                event!(
+                    Level::WARN,
+                    "rigidbody is missing transform, the rigidbody will not be simulated without one"
+                );
             }
         }
     }
@@ -1043,6 +1057,10 @@ fn set_all_rigid_bodies_and_colliders(
             *ecs_collider = collider.clone();
         } else {
             // log warning that collider is missing transform
+            event!(
+                Level::WARN,
+                "collider is missing transform, the collider will not be simulated without one"
+            );
         }
     }
 }
