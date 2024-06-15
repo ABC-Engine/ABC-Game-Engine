@@ -846,7 +846,6 @@ fn update_rb(
                 let (new_rb_handle, rb_handle_changed) = add_new_rb(
                     rb_path,
                     ecs_rigidbody,
-                    Some(&rigidbody_handle),
                     out_rigid_body_set,
                     out_rigid_body_entity_map,
                     &*transform + &transform_offset,
@@ -863,7 +862,6 @@ fn update_rb(
             let (new_rb_handle, rb_handle_changed) = add_new_rb(
                 rb_path,
                 ecs_rigidbody,
-                None,
                 out_rigid_body_set,
                 out_rigid_body_entity_map,
                 &*transform + &transform_offset,
@@ -885,7 +883,6 @@ fn update_rb(
 fn add_new_rb(
     entity: EntityPath,
     rigidbody: &mut RigidBody,
-    old_rb_handle: Option<&RigidBodyHandle>,
     out_rigid_body_set: &mut RigidBodySet,
     out_rigid_body_entity_map: &mut std::collections::HashMap<RigidBodyHandle, EntityPath>,
     transform: Transform,

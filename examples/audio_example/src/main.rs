@@ -5,7 +5,7 @@ fn main() {
     let entities_and_components = &mut scene.world.entities_and_components;
     // play the "main_music" audio file
     let audio_handle = entities_and_components
-        .get_resource::<AudioHandle>()
+        .get_resource_mut::<AudioHandle>()
         .expect("Failed to get audio handle");
 
     let audio_file = AudioFile::new("main_music.wav");

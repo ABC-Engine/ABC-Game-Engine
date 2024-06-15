@@ -1,5 +1,5 @@
 use fxhash::FxHashMap;
-use ABC_ECS::Resource;
+use ABC_ECS::{EntitiesAndComponents, Resource};
 
 /// Stolen directly from winit, this is a list of all the keycodes that can be pressed on a keyboard.
 /// I copy pasted this because I don't want to depend on winit in this crate.
@@ -239,10 +239,23 @@ impl KeyState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Other(u32),
+}
+
 pub struct Input {
     last_key_states: FxHashMap<KeyCode, bool>,
     /// KeyPressed is sent the frame that a key is pressed.
     key_states: FxHashMap<KeyCode, bool>,
+    last_mouse_states: FxHashMap<MouseButton, bool>,
+    /// KeyPressed is sent the frame that a key is pressed.
+    mouse_states: FxHashMap<MouseButton, bool>,
+    mouse_position: [f32; 2],
+    mouse_wheel: f32,
 }
 
 impl Input {
@@ -250,6 +263,10 @@ impl Input {
         Self {
             last_key_states: FxHashMap::default(),
             key_states: FxHashMap::default(),
+            last_mouse_states: FxHashMap::default(),
+            mouse_states: FxHashMap::default(),
+            mouse_position: [0.0, 0.0],
+            mouse_wheel: 0.0,
         }
     }
 
@@ -271,6 +288,24 @@ impl Input {
         }
     }
 
+    pub fn get_mouse_position(&self) -> [f32; 2] {
+        self.mouse_position
+    }
+
+    /// sets the mouse wheel value. Unless you are implementing a rendering system, don't call this.
+    pub fn set_mouse_position(&mut self, x: f32, y: f32) {
+        self.mouse_position = [x, y];
+    }
+
+    pub fn get_mouse_wheel(&self) -> f32 {
+        self.mouse_wheel
+    }
+
+    /// sets the mouse wheel value. Unless you are implementing a rendering system, don't call this.
+    pub fn set_mouse_wheel(&mut self, wheel: f32) {
+        self.mouse_wheel = wheel;
+    }
+
     /// sets the key state of a key. Unless you are implementing a rendering system, don't call this.
     pub fn set_key_down(&mut self, key: KeyCode) {
         self.key_states.insert(key, true);
@@ -281,6 +316,37 @@ impl Input {
     pub fn clear_key_states(&mut self) {
         self.last_key_states = self.key_states.clone();
         self.key_states.clear();
+    }
+
+    pub fn set_mouse_down(&mut self, button: MouseButton) {
+        self.mouse_states.insert(button, true);
+    }
+
+    pub fn clear_mouse_states(&mut self) {
+        self.last_mouse_states = self.mouse_states.clone();
+        self.mouse_states.clear();
+    }
+
+    pub fn get_mouse_state(&self, button: MouseButton) -> KeyState {
+        let last = self
+            .last_mouse_states
+            .get(&button)
+            .copied()
+            .unwrap_or(false);
+        let current = self.mouse_states.get(&button).copied().unwrap_or(false);
+        if last {
+            if current {
+                KeyState::Held
+            } else {
+                KeyState::Released
+            }
+        } else {
+            if current {
+                KeyState::Pressed
+            } else {
+                KeyState::NotPressed
+            }
+        }
     }
 }
 

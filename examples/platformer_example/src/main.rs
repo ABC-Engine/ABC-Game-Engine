@@ -49,7 +49,8 @@ impl System for PlayerController {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("Failed to get DeltaTime resource")
-                .delta_time as f32;
+                .get_delta_time() as f32;
+
             let physics_info = entities_and_components
                 .get_resource::<RapierPhysicsInfo>()
                 .expect("Failed to get PhysicsInfo resource");
@@ -68,6 +69,9 @@ impl System for PlayerController {
                 let entity = physics_info
                     .get_associated_entity_with_collider_handle(collider_handle.into())
                     .expect("Failed to get associated entity with collider handle");
+
+                let (entities_and_components, entity) =
+                    entity.access_entity(entities_and_components);
 
                 entities_and_components
                     .try_get_components::<(Ground,)>(entity)
@@ -91,8 +95,13 @@ impl System for PlayerController {
             );
 
             if input.get_key_state(KeyCode::Space) == KeyState::Pressed && intersection.is_some() {
-                if intersection.unwrap().1 < 0.01 {
-                    if intersection.unwrap().0 == player_entity {
+                let intersection = intersection.unwrap();
+
+                if intersection.1 < 0.01 {
+                    let (_, intersection_entity) =
+                        intersection.0.access_entity(entities_and_components);
+
+                    if intersection_entity == player_entity {
                         panic!("Player is intersecting with itself");
                     }
                     normalized_dir[1] = 1.0;
@@ -179,11 +188,11 @@ fn main() {
         speed: 1000.0,
         jump_force: 3000.0,
     });
-    physics::add_default_physics_systems(&mut scene);
+    physics::add_default_physics_systems(&mut scene.world);
 
-    lumenpyx_eventloop.run(&mut scene.world, |renderer, world| {
+    lumenpyx_eventloop.run(&mut scene.world, |world| {
         world.run();
 
-        render(&mut world.entities_and_components, renderer);
+        render(&mut world.entities_and_components);
     });
 }

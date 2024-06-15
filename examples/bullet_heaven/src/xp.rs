@@ -123,7 +123,7 @@ fn move_to_transform(
         delta_time = entities_and_components
             .get_resource::<DeltaTime>()
             .expect("failed to get delta time")
-            .delta_time;
+            .get_delta_time();
     }
 
     if let (Some(self_transform),) =

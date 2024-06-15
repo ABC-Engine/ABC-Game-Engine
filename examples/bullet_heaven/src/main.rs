@@ -90,7 +90,7 @@ impl System for PlayerMovementSystem {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
-                .delta_time;
+                .get_delta_time();
             let input = entities_and_components
                 .get_resource::<Input>()
                 .expect("failed to get input");
@@ -322,7 +322,7 @@ fn spawn_bullet(entities_and_components: &mut EntitiesAndComponents, pos: [f64; 
     );
 
     let audio_handle = entities_and_components
-        .get_resource::<AudioHandle>()
+        .get_resource_mut::<AudioHandle>()
         .expect("Failed to get audio handle");
 
     let audio_file = AudioFile::new("Sounds/Gun_Shot.wav");
@@ -341,7 +341,7 @@ impl System for BulletMovementSystem {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
-                .delta_time;
+                .get_delta_time();
         }
 
         let entities_with_bullets = entities_and_components
@@ -416,7 +416,7 @@ impl System for EnemyMovementSystem {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
-                .delta_time;
+                .get_delta_time();
         }
         for entity_index in 0..entities_and_components.get_entity_count() {
             let self_entity = entities_and_components
@@ -609,7 +609,7 @@ impl System for CameraMovementSystem {
             delta_time = entities_and_components
                 .get_resource::<DeltaTime>()
                 .expect("failed to get delta time")
-                .delta_time;
+                .get_delta_time();
 
             player_transform = entities_and_components
                 .get_components::<(Transform,)>(self.player_entity)
@@ -971,7 +971,7 @@ fn main() {
         let audio_handle = scene
             .world
             .entities_and_components
-            .get_resource::<AudioHandle>()
+            .get_resource_mut::<AudioHandle>()
             .expect("Failed to get audio handle");
 
         let audio_file = AudioFile::new("Sounds/Main_Music.wav");
