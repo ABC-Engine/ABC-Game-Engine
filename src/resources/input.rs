@@ -366,6 +366,58 @@ impl Button {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AxisDirection {
+    X, // positive x is right, negative x is left.
+    Y, // positive y is up, negative y is down.
+}
+
+impl From<AxisDirection> for usize {
+    fn from(value: AxisDirection) -> Self {
+        match value {
+            AxisDirection::X => 0,
+            AxisDirection::Y => 1,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GamepadAxis {
+    // if none, the last gamepad is used.
+    id: Option<u32>,
+    axis: u32,
+    direction: AxisDirection,
+    deadzone: f32,
+}
+
+impl GamepadAxis {
+    pub fn new(id: Option<u32>, axis: u32, direction: AxisDirection, deadzone: f32) -> Self {
+        Self {
+            id,
+            axis,
+            direction,
+            deadzone,
+        }
+    }
+}
+
+/// A 1D axis is a series of positive and negative keys that can be pressed to move the axis in either the positive or negative direction.
+pub struct Axis {
+    positive_keys: Vec<Key>,
+    negative_keys: Vec<Key>,
+    axes: Vec<GamepadAxis>,
+}
+
+impl Axis {
+    pub fn new(positive_keys: Vec<Key>, negative_keys: Vec<Key>, axes: Vec<GamepadAxis>) -> Self {
+        Self {
+            positive_keys,
+            negative_keys,
+            axes,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MouseButton {
     Left,
@@ -454,6 +506,7 @@ pub struct Input {
     last_active_gamepad: u32,
 
     buttons: FxHashMap<String, Button>,
+    axes: FxHashMap<String, Axis>,
     // gamepad input handling
     gilrs: Gilrs,
 }
@@ -470,6 +523,7 @@ impl Input {
             gamepad_infos: FxHashMap::default(),
             last_active_gamepad: 0,
             buttons: FxHashMap::default(),
+            axes: FxHashMap::default(),
             gilrs: Gilrs::new().unwrap(),
         }
     }
@@ -569,16 +623,13 @@ impl Input {
         let negative =
             negative_keystate == KeyState::Pressed || negative_keystate == KeyState::Held;
 
-        if positive_keystate == KeyState::Held
-            || positive_keystate == KeyState::Pressed
-            || positive_keystate == KeyState::Released
-        {
+        if positive_keystate != KeyState::NotPressed {
             if positive_keystate == KeyState::Released || negative_keystate == KeyState::Pressed {
                 return KeyState::Released; // doesn't matter if negative keys are pressed, if a positive key is released, the button is released.
             } else if negative {
                 return KeyState::NotPressed; // if a negative key is pressed, the button is not pressed.
             } else {
-                return KeyState::Pressed; // if a positive key is pressed, the button is pressed.
+                return positive_keystate; // no interference from negative keys.
             }
         } else {
             KeyState::NotPressed
@@ -660,10 +711,10 @@ impl Input {
 
     /// gets the axis of a gamepad. The axis is a value between -1 and 1.
     /// returns [0.0, 0.0] if the gamepad is not found.
-    pub fn get_gamepad_axis_with_id(&self, id: u32) -> [f32; 2] {
+    pub fn get_gamepad_axis_with_id(&self, gamepad_id: u32, axis_id: u32) -> [f32; 2] {
         self.gamepad_infos
-            .get(&id)
-            .map(|info| info.get_gamepad_axis_with_id(id))
+            .get(&gamepad_id)
+            .map(|info| info.get_gamepad_axis_with_id(axis_id))
             .unwrap_or([0.0, 0.0])
     }
 
@@ -690,6 +741,58 @@ impl Input {
             _ => None,
         }
     }
+
+    pub fn add_axis(&mut self, name: &str, axis: Axis) {
+        self.axes.insert(name.to_string(), axis);
+    }
+
+    pub fn get_axis(&self, name: &str) -> f32 {
+        let axis = self.axes.get(name).expect(
+            format!(
+                "Axis {} not found... did you ever add it? the list of available axes are: {:?}",
+                name,
+                self.axes.keys()
+            )
+            .as_str(),
+        );
+
+        let mut is_keyboard_input = false;
+
+        // not entirely necessary, but it should help if someone bumps a keybind for only one frame?
+        // + it's more readable and consistent with the button code.
+        let positive = self.find_highest_state(&axis.positive_keys);
+        let negative = self.find_highest_state(&axis.negative_keys);
+
+        let mut value = 0.0;
+
+        if positive == KeyState::Held || positive == KeyState::Pressed {
+            value += 1.0;
+            is_keyboard_input = true;
+        }
+
+        if negative == KeyState::Held || negative == KeyState::Pressed {
+            value -= 1.0;
+            is_keyboard_input = true;
+        }
+
+        if is_keyboard_input {
+            // no need to check gamepad input if keyboard input is found.
+            // Note: this prioritizes keyboard input over gamepad input, maybe this should be configurable?
+            return value;
+        }
+
+        for gamepad_axis in &axis.axes {
+            let id = gamepad_axis.id.unwrap_or(self.last_active_gamepad);
+            let axis = self.get_gamepad_axis_with_id(id, gamepad_axis.axis)
+                [gamepad_axis.direction as usize];
+            if axis > gamepad_axis.deadzone || axis < -gamepad_axis.deadzone {
+                value += axis;
+                return value;
+            }
+        }
+
+        value
+    }
 }
 
 impl Resource for Input {
@@ -701,7 +804,6 @@ impl Resource for Input {
 
         while let Some(Event { id, event, .. }) = self.gilrs.next_event() {
             let id = usize::from(id) as u32;
-            println!("{:?}", event);
 
             match event {
                 gilrs::EventType::ButtonRepeated(button, _) => {
