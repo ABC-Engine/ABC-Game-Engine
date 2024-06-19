@@ -1,6 +1,8 @@
 use fxhash::{FxHashMap, FxHashSet};
 use gilrs::{Event, Gilrs};
-use ABC_ECS::Resource;
+use ABC_ECS::{EntitiesAndComponents, Resource};
+
+use crate::delta_time;
 
 // Stolen directly from winit, this is a list of all the keycodes that can be pressed on a keyboard.
 // I copy pasted this because I don't want to depend on winit in this crate.
@@ -281,41 +283,6 @@ impl Ord for KeyState {
     }
 }
 
-impl KeyState {
-    fn next_state(&self, pressed: bool) -> Self {
-        match self {
-            KeyState::NotPressed => {
-                if pressed {
-                    KeyState::Pressed
-                } else {
-                    KeyState::NotPressed
-                }
-            }
-            KeyState::Pressed => {
-                if pressed {
-                    KeyState::Held
-                } else {
-                    KeyState::Released
-                }
-            }
-            KeyState::Held => {
-                if pressed {
-                    KeyState::Held
-                } else {
-                    KeyState::Released
-                }
-            }
-            KeyState::Released => {
-                if pressed {
-                    KeyState::Pressed
-                } else {
-                    KeyState::NotPressed
-                }
-            }
-        }
-    }
-}
-
 /// For either a key or a mouse button.
 /// (note: This naming seems a bit off, if you have a better name, please suggest it.)
 pub enum Key {
@@ -406,6 +373,15 @@ pub struct Axis {
     positive_keys: Vec<Key>,
     negative_keys: Vec<Key>,
     axes: Vec<GamepadAxis>,
+    // the speed at which the axis moves back to 0 when no keys are pressed.
+    // if this is None, the axis will be moved back to 0 instantly.
+    // the higher the value, the faster the axis moves back to 0.
+    gravity: Option<f32>,
+    // the speed at which the axis moves when a key is pressed.
+    // if this is None, the axis will be moved at a constant speed.
+    // the higher the value, the faster the axis moves.
+    sensitivity: Option<f32>,
+    value: f32,
 }
 
 impl Axis {
@@ -414,7 +390,111 @@ impl Axis {
             positive_keys,
             negative_keys,
             axes,
+            gravity: None,
+            sensitivity: None,
+            value: 0.0,
         }
+    }
+
+    pub fn with_gravity(mut self, gravity: f32) -> Self {
+        self.gravity = Some(gravity);
+        self
+    }
+
+    pub fn with_sensitivity(mut self, sensitivity: f32) -> Self {
+        self.sensitivity = Some(sensitivity);
+        self
+    }
+
+    pub fn with_axes(mut self, axes: Vec<GamepadAxis>) -> Self {
+        self.axes = axes;
+        self
+    }
+
+    pub fn with_positive_keys(mut self, positive_keys: Vec<Key>) -> Self {
+        self.positive_keys = positive_keys;
+        self
+    }
+
+    pub fn with_negative_keys(mut self, negative_keys: Vec<Key>) -> Self {
+        self.negative_keys = negative_keys;
+        self
+    }
+
+    pub fn set_axis(&mut self, axes: Vec<GamepadAxis>) {
+        self.axes = axes;
+    }
+
+    pub fn set_positive_keys(&mut self, positive_keys: Vec<Key>) {
+        self.positive_keys = positive_keys;
+    }
+
+    pub fn set_negative_keys(&mut self, negative_keys: Vec<Key>) {
+        self.negative_keys = negative_keys;
+    }
+
+    pub fn set_gravity(&mut self, gravity: f32) {
+        self.gravity = Some(gravity);
+    }
+
+    pub fn set_sensitivity(&mut self, sensitivity: f32) {
+        self.sensitivity = Some(sensitivity);
+    }
+
+    pub fn update_value_from_raw(&mut self, raw_value: f32, delta_time: f32) {
+        let difference = raw_value - self.value;
+
+        let multiplier;
+        if raw_value.abs() < 0.01 {
+            if let Some(gravity) = self.gravity {
+                multiplier = gravity;
+            } else {
+                self.value = raw_value;
+                return;
+            }
+        } else {
+            if let Some(sensitivity) = self.sensitivity {
+                multiplier = sensitivity;
+            } else {
+                self.value = raw_value;
+                return;
+            }
+        }
+
+        let dir = difference.signum();
+
+        let amount_to_move = multiplier * delta_time * dir;
+        if amount_to_move.abs() > difference.abs() {
+            self.value = raw_value;
+        } else {
+            self.value += amount_to_move;
+        }
+
+        /*// kind of a mess, but not sure how to make it cleaner.
+        if difference > 0.0 {
+            if let Some(sensitivity) = self.sensitivity {
+                let amount_to_move = sensitivity * delta_time;
+                if amount_to_move > difference {
+                    self.value = raw_value;
+                } else {
+                    self.value += amount_to_move;
+                }
+            } else {
+                self.value = raw_value;
+            }
+        } else if difference < 0.0 {
+            if let Some(gravity) = self.gravity {
+                let amount_to_move = -1.0 * gravity * delta_time;
+
+                if amount_to_move < difference {
+                    self.value = raw_value;
+                } else {
+                    self.value += amount_to_move;
+                }
+            } else {
+                self.value = raw_value;
+            }
+        }*/
     }
 }
 
@@ -746,7 +826,7 @@ impl Input {
         self.axes.insert(name.to_string(), axis);
     }
 
-    pub fn get_axis(&self, name: &str) -> f32 {
+    pub fn get_axis_raw(&self, name: &str) -> f32 {
         let axis = self.axes.get(name).expect(
             format!(
                 "Axis {} not found... did you ever add it? the list of available axes are: {:?}",
@@ -793,33 +873,75 @@ impl Input {
 
         value
     }
+
+    pub fn get_axis(&self, name: &str) -> f32 {
+        let axis = self.axes.get(name).expect(
+            format!(
+                "Axis {} not found... did you ever add it? the list of available axes are: {:?}",
+                name,
+                self.axes.keys()
+            )
+            .as_str(),
+        );
+
+        axis.value
+    }
 }
 
 impl Resource for Input {
-    fn update(&mut self) {
+    fn update(&mut self) {} // update is handled by the InputUpdateSystem
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+}
+
+pub(crate) struct InputUpdateSystem;
+
+impl InputUpdateSystem {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl ABC_ECS::System for InputUpdateSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let delta_time = entities_and_components
+            .get_resource::<delta_time::DeltaTime>()
+            .expect("DeltaTime not found")
+            .get_delta_time();
+
+        let input = entities_and_components
+            .get_resource_mut::<Input>()
+            .expect("Input not found");
+
         // handle gamepad input
-        for info in self.gamepad_infos.values_mut() {
+        for info in input.gamepad_infos.values_mut() {
             info.clear_gamepad_states();
         }
 
-        while let Some(Event { id, event, .. }) = self.gilrs.next_event() {
+        while let Some(Event { id, event, .. }) = input.gilrs.next_event() {
             let id = usize::from(id) as u32;
 
             match event {
                 gilrs::EventType::ButtonRepeated(button, _) => {
-                    self.last_active_gamepad = id;
-                    let button = Self::gilrs_button_to_gamepad_button(button);
+                    input.last_active_gamepad = id;
+                    let button: Option<GamepadButton> =
+                        Input::gilrs_button_to_gamepad_button(button);
                     if let Some(button) = button {
-                        self.set_gamepad_button_down(id, button);
+                        input.set_gamepad_button_down(id, button);
                     }
                 }
                 gilrs::EventType::ButtonPressed(button, _) => {
-                    self.last_active_gamepad = id;
-                    let button = Self::gilrs_button_to_gamepad_button(button);
+                    input.last_active_gamepad = id;
+                    let button = Input::gilrs_button_to_gamepad_button(button);
 
                     if let Some(button) = button {
-                        self.set_gamepad_button_down(id, button);
-                        self.gamepad_infos
+                        input.set_gamepad_button_down(id, button);
+                        input
+                            .gamepad_infos
                             .get_mut(&id)
                             .unwrap()
                             .buttons_awaiting_release
@@ -827,11 +949,12 @@ impl Resource for Input {
                     }
                 }
                 gilrs::EventType::ButtonReleased(button, _) => {
-                    self.last_active_gamepad = id;
-                    let button = Self::gilrs_button_to_gamepad_button(button);
+                    input.last_active_gamepad = id;
+                    let button = Input::gilrs_button_to_gamepad_button(button);
 
                     if let Some(button) = button {
-                        self.gamepad_infos
+                        input
+                            .gamepad_infos
                             .get_mut(&id)
                             .unwrap()
                             .buttons_awaiting_release
@@ -844,7 +967,7 @@ impl Resource for Input {
 
         let mut axis_data = vec![];
 
-        for (id, gamepad) in self.gilrs.gamepads() {
+        for (id, gamepad) in input.gilrs.gamepads() {
             let id = usize::from(id) as u32;
 
             let left_stick_x = gamepad.value(gilrs::Axis::LeftStickX);
@@ -862,28 +985,34 @@ impl Resource for Input {
         }
 
         for (id, left_stick, right_stick) in axis_data {
-            self.set_gamepad_axis(id, 0, left_stick);
-            self.set_gamepad_axis(id, 1, right_stick);
+            input.set_gamepad_axis(id, 0, left_stick);
+            input.set_gamepad_axis(id, 1, right_stick);
         }
 
         let mut all_buttons_awating_release = vec![];
 
-        for (id, gamepad) in self.gamepad_infos.iter() {
+        for (id, gamepad) in input.gamepad_infos.iter() {
             for button in gamepad.buttons_awaiting_release.iter() {
                 all_buttons_awating_release.push((*id, *button));
             }
         }
 
         for (id, button) in all_buttons_awating_release {
-            self.set_gamepad_button_down(id, button)
+            input.set_gamepad_button_down(id, button)
         }
 
-        self.gilrs.inc();
-    }
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self
+        let all_axis_names = input.axes.keys().cloned().collect::<Vec<String>>();
+        for axis_name in all_axis_names {
+            let raw_value = input.get_axis_raw(&axis_name);
+
+            let axis = input
+                .axes
+                .get_mut(&axis_name)
+                .expect(format!("Axis {} not found", axis_name).as_str());
+
+            axis.update_value_from_raw(raw_value, delta_time as f32);
+        }
+
+        input.gilrs.inc();
     }
 }
