@@ -283,13 +283,22 @@ impl Ord for KeyState {
     }
 }
 
+pub struct AxisEvent {
+    direction: AxisDirection,
+    axis: String,
+    // how much the axis has to be pressed to be considered pressed.
+    // this is a bit of a confusing name, because it's the same as the deadzone for gamepad axes.
+    // but it's the same concept except not analog.
+    deadzone: f32,
+}
+
 /// For either a key or a mouse button.
 /// (note: This naming seems a bit off, if you have a better name, please suggest it.)
 pub enum Key {
     KeyCode(KeyCode),
     MouseButton(MouseButton),
     GamepadButton((GamepadButton, Option<u32>)),
-    AxisEvent((AxisDirection, String)),
+    AxisEvent(AxisEvent),
 }
 
 impl Into<Key> for KeyCode {
@@ -316,7 +325,7 @@ impl Into<Key> for GamepadButton {
     }
 }
 
-impl Into<Key> for (AxisDirection, String) {
+impl Into<Key> for AxisEvent {
     fn into(self) -> Key {
         Key::AxisEvent(self)
     }
@@ -740,12 +749,12 @@ impl Input {
                         highest = keystate;
                     }
                 }
-                Key::AxisEvent((direction, axis)) => {
-                    let axis = self.get_axis(&axis);
+                Key::AxisEvent(axis_event) => {
+                    let axis = self.get_axis(&axis_event.axis);
 
-                    let is_active = match direction {
-                        AxisDirection::X => axis.abs() > 0.25,
-                        AxisDirection::Y => axis.abs() > 0.25,
+                    let is_active = match axis_event.direction {
+                        AxisDirection::X => axis.abs() > axis_event.deadzone,
+                        AxisDirection::Y => axis.abs() > axis_event.deadzone,
                     };
 
                     // this isn't the greatest but currently there is no way to find the delta of the axis.
