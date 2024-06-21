@@ -1,8 +1,7 @@
+use crate::delta_time;
 use fxhash::{FxHashMap, FxHashSet};
 use gilrs::{Event, Gilrs};
 use ABC_ECS::{EntitiesAndComponents, Resource};
-
-use crate::delta_time;
 
 // Stolen directly from winit, this is a list of all the keycodes that can be pressed on a keyboard.
 // I copy pasted this because I don't want to depend on winit in this crate.
@@ -196,6 +195,8 @@ pub enum KeyCode {
     Cut,
 }
 
+/// The buttons on a gamepad.
+/// (note: if there is something wrong with this list or if something is missing, please let me know.)
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GamepadButton {
     Start,
@@ -283,13 +284,14 @@ impl Ord for KeyState {
     }
 }
 
+/// An axis event is an event that is triggered when an axis passes a certain threshold.
 pub struct AxisEvent {
     direction: AxisDirection,
     axis: String,
     // how much the axis has to be pressed to be considered pressed.
     // this is a bit of a confusing name, because it's the same as the deadzone for gamepad axes.
     // but it's the same concept except not analog.
-    deadzone: f32,
+    threshold: f32,
 }
 
 /// For either a key or a mouse button.
@@ -341,6 +343,9 @@ pub struct Button {
 }
 
 impl Button {
+    /// Creates a new button.
+    /// positive_keys are keys that when pressed, the button is pressed.
+    /// negative_keys are keys that when pressed, the button is not pressed, even if a positive key is pressed.
     pub fn new(positive_keys: Vec<Key>, negative_keys: Vec<Key>) -> Self {
         Self {
             positive_keys,
@@ -349,6 +354,8 @@ impl Button {
     }
 }
 
+/// The direction of an axis.
+/// X is left and right, Y is up and down.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum AxisDirection {
     X, // positive x is right, negative x is left.
@@ -364,6 +371,8 @@ impl From<AxisDirection> for usize {
     }
 }
 
+/// A gamepad axis specifies a specific axis on a specific gamepad.
+/// if the gamepad is not specified, the last gamepad is used.
 #[derive(Debug, Clone)]
 pub struct GamepadAxis {
     // if none, the last gamepad is used.
@@ -374,6 +383,7 @@ pub struct GamepadAxis {
 }
 
 impl GamepadAxis {
+    /// Creates a new gamepad axis.
     pub fn new(id: Option<u32>, axis: u32, direction: AxisDirection, deadzone: f32) -> Self {
         Self {
             id,
@@ -401,6 +411,7 @@ pub struct Axis {
 }
 
 impl Axis {
+    /// Creates a new axis.
     pub fn new(positive_keys: Vec<Key>, negative_keys: Vec<Key>, axes: Vec<GamepadAxis>) -> Self {
         Self {
             positive_keys,
@@ -412,51 +423,62 @@ impl Axis {
         }
     }
 
+    /// Creates a new axis with a gravity value.
     pub fn with_gravity(mut self, gravity: f32) -> Self {
         self.gravity = Some(gravity);
         self
     }
 
+    /// Creates a new axis with a sensitivity value.
     pub fn with_sensitivity(mut self, sensitivity: f32) -> Self {
         self.sensitivity = Some(sensitivity);
         self
     }
 
+    /// Creates a new axis with certain axes.
     pub fn with_axes(mut self, axes: Vec<GamepadAxis>) -> Self {
         self.axes = axes;
         self
     }
 
+    /// Creates a new axis with certain positive keys.
     pub fn with_positive_keys(mut self, positive_keys: Vec<Key>) -> Self {
         self.positive_keys = positive_keys;
         self
     }
 
+    /// Creates a new axis with certain negative keys.
     pub fn with_negative_keys(mut self, negative_keys: Vec<Key>) -> Self {
         self.negative_keys = negative_keys;
         self
     }
 
+    /// Creates a new axis with a certain value.
     pub fn set_axis(&mut self, axes: Vec<GamepadAxis>) {
         self.axes = axes;
     }
 
+    /// sets the positive keys of the axis.
     pub fn set_positive_keys(&mut self, positive_keys: Vec<Key>) {
         self.positive_keys = positive_keys;
     }
 
+    /// sets the negative keys of the axis.
     pub fn set_negative_keys(&mut self, negative_keys: Vec<Key>) {
         self.negative_keys = negative_keys;
     }
 
+    /// sets the gravity of the axis.
     pub fn set_gravity(&mut self, gravity: f32) {
         self.gravity = Some(gravity);
     }
 
+    /// sets the sensitivity of the axis.
     pub fn set_sensitivity(&mut self, sensitivity: f32) {
         self.sensitivity = Some(sensitivity);
     }
 
+    /// gets the value of the axis.
     pub fn update_value_from_raw(&mut self, raw_value: f32, delta_time: f32) {
         let difference = raw_value - self.value;
 
@@ -488,6 +510,8 @@ impl Axis {
     }
 }
 
+/// The mouse buttons.
+/// Other can be any other mouse button that isn't left, right or middle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum MouseButton {
     Left,
@@ -514,15 +538,18 @@ impl GamepadInputInfo {
         }
     }
 
+    /// sets a gamepad button as down
     pub fn set_gamepad_button_down(&mut self, button: GamepadButton) {
         self.gamepad_states.insert(button, true);
     }
 
+    /// clears all gamepad states.
     pub fn clear_gamepad_states(&mut self) {
         self.last_gamepad_states = self.gamepad_states.clone();
         self.gamepad_states.clear();
     }
 
+    /// gets the state of a gamepad button.
     pub fn get_gamepad_state(&self, button: GamepadButton) -> KeyState {
         let last = self
             .last_gamepad_states
@@ -552,6 +579,7 @@ impl GamepadInputInfo {
         self.gamepad_axes.get(&0).copied().unwrap_or([0.0, 0.0])
     }
 
+    /// sets the axis of a gamepad. The axis is a value between -1 and 1.
     pub fn set_gamepad_axis(&mut self, id: u32, axis: [f32; 2]) {
         self.gamepad_axes.insert(id, axis);
     }
@@ -563,6 +591,8 @@ impl GamepadInputInfo {
     }
 }
 
+/// The input resource.
+/// This is the resource that is used to get input from the user.
 pub struct Input {
     last_key_states: FxHashMap<KeyCode, bool>,
     key_states: FxHashMap<KeyCode, bool>,
@@ -582,6 +612,9 @@ pub struct Input {
 }
 
 impl Input {
+    /// Creates a new input resource.
+    /// mostly don't need to call this, as the engine will create it for you.
+    ///
     pub fn new() -> Self {
         Self {
             last_key_states: FxHashMap::default(),
@@ -598,6 +631,7 @@ impl Input {
         }
     }
 
+    /// gets the state of a key.
     pub fn get_key_state(&self, key: KeyCode) -> KeyState {
         let last = self.last_key_states.get(&key).copied().unwrap_or(false);
         let current = self.key_states.get(&key).copied().unwrap_or(false);
@@ -625,6 +659,7 @@ impl Input {
         self.mouse_position = [x, y];
     }
 
+    /// gets the mouse wheel value.
     pub fn get_mouse_wheel(&self) -> f32 {
         self.mouse_wheel
     }
@@ -646,15 +681,18 @@ impl Input {
         self.key_states.clear();
     }
 
+    /// sets the mouse state of a mouse button. Unless you are implementing a rendering system, don't call this.
     pub fn set_mouse_down(&mut self, button: MouseButton) {
         self.mouse_states.insert(button, true);
     }
 
+    /// Moves all current mouse states to previous mouse states. Unless you are implementing a rendering system, don't call this.
     pub fn clear_mouse_states(&mut self) {
         self.last_mouse_states = self.mouse_states.clone();
         self.mouse_states.clear();
     }
 
+    /// gets the state of a mouse button.
     pub fn get_mouse_state(&self, button: MouseButton) -> KeyState {
         let last = self
             .last_mouse_states
@@ -677,10 +715,12 @@ impl Input {
         }
     }
 
+    /// Adds a button to the input resource.
     pub fn add_button(&mut self, name: &str, button: Button) {
         self.buttons.insert(name.to_string(), button);
     }
 
+    /// gets the state of a button.
     pub fn get_button_state(&self, name: &str) -> KeyState {
         let button = self
             .buttons
@@ -706,6 +746,7 @@ impl Input {
         }
     }
 
+    /// finds the highest state of a list of keys.
     fn find_highest_state(&self, keys: &[Key]) -> KeyState {
         let mut highest = KeyState::NotPressed;
         for key in keys {
@@ -753,8 +794,8 @@ impl Input {
                     let axis = self.get_axis(&axis_event.axis);
 
                     let is_active = match axis_event.direction {
-                        AxisDirection::X => axis.abs() > axis_event.deadzone,
-                        AxisDirection::Y => axis.abs() > axis_event.deadzone,
+                        AxisDirection::X => axis.abs() > axis_event.threshold,
+                        AxisDirection::Y => axis.abs() > axis_event.threshold,
                     };
 
                     // this isn't the greatest but currently there is no way to find the delta of the axis.
@@ -779,6 +820,7 @@ impl Input {
             .unwrap_or([0.0, 0.0])
     }
 
+    /// sets the axis of a gamepad. The axis is a value between -1 and 1.
     pub fn set_gamepad_axis(&mut self, gamepad_id: u32, axis_id: u32, axis: [f32; 2]) {
         self.gamepad_infos
             .entry(gamepad_id)
@@ -786,6 +828,7 @@ impl Input {
             .set_gamepad_axis(axis_id, axis);
     }
 
+    /// sets the state of a gamepad button. unless you are implementing a rendering system, don't call this.
     pub fn set_gamepad_button_down(&mut self, gamepad_id: u32, button: GamepadButton) {
         self.gamepad_infos
             .entry(gamepad_id)
@@ -826,10 +869,15 @@ impl Input {
         }
     }
 
+    /// Adds an axis to the input resource.
+    /// The axis can be accessed by name by calling get_axis.
     pub fn add_axis(&mut self, name: &str, axis: Axis) {
         self.axes.insert(name.to_string(), axis);
     }
 
+    /// gets the raw value of an axis.
+    /// This is the value of the axis before gravity and sensitivity are applied.
+    /// Just as received from the controller, with no modifications.
     pub fn get_axis_raw(&self, name: &str) -> f32 {
         let axis = self.axes.get(name).expect(
             format!(
@@ -878,6 +926,7 @@ impl Input {
         value
     }
 
+    /// gets the value of an axis.
     pub fn get_axis(&self, name: &str) -> f32 {
         let axis = self.axes.get(name).expect(
             format!(
@@ -905,7 +954,8 @@ impl Resource for Input {
 pub(crate) struct InputUpdateSystem;
 
 impl InputUpdateSystem {
-    pub fn new() -> Self {
+    /// Creates a new input update system.
+    pub(crate) fn new() -> Self {
         Self
     }
 }
