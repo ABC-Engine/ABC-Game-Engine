@@ -650,6 +650,7 @@ impl Input {
         }
     }
 
+    /// gets the position of the mouse.
     pub fn get_mouse_position(&self) -> [f32; 2] {
         self.mouse_position
     }
@@ -676,6 +677,7 @@ impl Input {
 
     /// Moves all current key states to previous key states. Unless you are implementing a rendering system, don't call this.
     /// if you are implementing a rendering system, call this before calling set_key_state.
+    /// also keep in mind this will not clear the mouse states, that is done by clear_mouse_states.
     pub fn clear_key_states(&mut self) {
         self.last_key_states = self.key_states.clone();
         self.key_states.clear();
@@ -834,6 +836,14 @@ impl Input {
             .entry(gamepad_id)
             .or_insert_with(GamepadInputInfo::new)
             .set_gamepad_button_down(button);
+    }
+
+    /// gets the state of a gamepad button.
+    pub fn get_gamepad_state(&self, gamepad_id: u32, button: GamepadButton) -> KeyState {
+        self.gamepad_infos
+            .get(&gamepad_id)
+            .map(|info| info.get_gamepad_state(button))
+            .unwrap_or(KeyState::NotPressed)
     }
 
     /// gets the axis of a gamepad. The axis is a value between -1 and 1.
@@ -1068,5 +1078,221 @@ impl ABC_ECS::System for InputUpdateSystem {
         }
 
         input.gilrs.inc();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Scene;
+
+    use super::*;
+    use ABC_ECS::System;
+
+    #[test]
+    fn test_button() {
+        let button = Button::new(
+            vec![Key::KeyCode(KeyCode::A)],
+            vec![Key::KeyCode(KeyCode::B)],
+        );
+
+        assert_eq!(button.positive_keys.len(), 1);
+        assert_eq!(button.negative_keys.len(), 1);
+    }
+
+    #[test]
+    fn test_key_state() {
+        let key_state = KeyState::Pressed;
+
+        assert!(key_state > KeyState::NotPressed);
+        assert!(key_state < KeyState::Held);
+        assert!(key_state < KeyState::Released);
+    }
+
+    #[test]
+    fn test_axis() {
+        let axis = Axis::new(
+            vec![Key::KeyCode(KeyCode::A)],
+            vec![Key::KeyCode(KeyCode::B)],
+            vec![GamepadAxis::new(None, 0, AxisDirection::X, 0.5)],
+        );
+
+        assert_eq!(axis.positive_keys.len(), 1);
+        assert_eq!(axis.negative_keys.len(), 1);
+        assert_eq!(axis.axes.len(), 1);
+    }
+
+    #[test]
+    fn test_gamepad_button() {
+        let button: Key = GamepadButton::South.into();
+
+        match button {
+            Key::GamepadButton((GamepadButton::South, None)) => {}
+            _ => panic!("Key not GamepadButton::South"),
+        }
+    }
+
+    #[test]
+    fn test_gamepad_axis() {
+        let axis = GamepadAxis::new(None, 0, AxisDirection::X, 0.5);
+
+        assert_eq!(axis.axis, 0);
+    }
+
+    #[test]
+    fn test_releasing() {
+        let mut input = Input::new();
+
+        input.set_key_down(KeyCode::A);
+        input.set_mouse_down(MouseButton::Left);
+
+        input.clear_key_states();
+        input.clear_mouse_states();
+
+        assert_eq!(input.get_key_state(KeyCode::A), KeyState::Released);
+        assert_eq!(input.get_mouse_state(MouseButton::Left), KeyState::Released);
+    }
+
+    #[test]
+    fn test_pressed() {
+        let mut input = Input::new();
+
+        input.set_key_down(KeyCode::A);
+        input.set_mouse_down(MouseButton::Left);
+
+        assert_eq!(input.get_key_state(KeyCode::A), KeyState::Pressed);
+        assert_eq!(input.get_mouse_state(MouseButton::Left), KeyState::Pressed);
+    }
+
+    #[test]
+    fn test_held() {
+        let mut input = Input::new();
+
+        input.set_key_down(KeyCode::A);
+        input.set_mouse_down(MouseButton::Left);
+
+        input.clear_key_states();
+        input.clear_mouse_states();
+
+        input.set_key_down(KeyCode::A);
+        input.set_mouse_down(MouseButton::Left);
+
+        assert_eq!(input.get_key_state(KeyCode::A), KeyState::Held);
+        assert_eq!(input.get_mouse_state(MouseButton::Left), KeyState::Held);
+    }
+
+    #[test]
+    fn test_button_state() {
+        let mut input = Input::new();
+
+        input.add_button(
+            "test",
+            Button::new(
+                vec![Key::KeyCode(KeyCode::A)],
+                vec![Key::KeyCode(KeyCode::B)],
+            ),
+        );
+
+        input.set_key_down(KeyCode::A);
+
+        assert_eq!(input.get_button_state("test"), KeyState::Pressed);
+
+        input.clear_key_states();
+
+        assert_eq!(input.get_button_state("test"), KeyState::Released);
+    }
+
+    #[test]
+    fn test_axis_value() {
+        let mut input = Input::new();
+
+        input.add_axis(
+            "test",
+            Axis::new(
+                vec![Key::KeyCode(KeyCode::A)],
+                vec![Key::KeyCode(KeyCode::B)],
+                vec![GamepadAxis::new(None, 0, AxisDirection::X, 0.5)],
+            ),
+        );
+
+        let mut scene = Scene::new();
+
+        let mut input_system = InputUpdateSystem::new();
+
+        let entities_and_components = &mut scene.world.entities_and_components;
+
+        entities_and_components.add_resource(input);
+
+        input_system.run(entities_and_components);
+
+        let input = entities_and_components
+            .get_resource_mut::<Input>()
+            .expect("Input not found");
+
+        assert_eq!(input.get_axis("test"), 0.0);
+
+        input.set_key_down(KeyCode::A);
+
+        input_system.run(entities_and_components);
+
+        let input = entities_and_components
+            .get_resource_mut::<Input>()
+            .expect("Input not found");
+
+        assert_eq!(input.get_axis("test"), 1.0);
+    }
+
+    #[test]
+    fn test_axis_event() {
+        let mut input = Input::new();
+
+        input.add_axis(
+            "test",
+            Axis::new(vec![Key::KeyCode(KeyCode::A)], vec![], vec![]),
+        );
+
+        let axis_related_button = Button::new(
+            vec![Key::AxisEvent(AxisEvent {
+                direction: AxisDirection::X,
+                axis: "test".to_string(),
+                threshold: 0.5,
+            })],
+            vec![],
+        );
+
+        input.add_button("axis_related_button", axis_related_button);
+
+        let mut scene = Scene::new();
+
+        let mut input_system = InputUpdateSystem::new();
+
+        let entities_and_components = &mut scene.world.entities_and_components;
+
+        entities_and_components.add_resource(input);
+
+        input_system.run(entities_and_components);
+
+        let input = entities_and_components
+            .get_resource_mut::<Input>()
+            .expect("Input not found");
+
+        assert_eq!(
+            input.get_button_state("axis_related_button"),
+            KeyState::NotPressed
+        );
+
+        input.set_key_down(KeyCode::A);
+
+        input_system.run(entities_and_components);
+
+        let input = entities_and_components
+            .get_resource_mut::<Input>()
+            .expect("Input not found");
+
+        // this is known to fail for now because the axis event doesn't have a delta.
+        // this is a known issue and will be fixed in the future. so this test will fail until then.
+        assert_eq!(
+            input.get_button_state("axis_related_button"),
+            KeyState::Pressed
+        );
     }
 }
