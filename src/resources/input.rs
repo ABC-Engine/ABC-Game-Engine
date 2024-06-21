@@ -289,6 +289,7 @@ pub enum Key {
     KeyCode(KeyCode),
     MouseButton(MouseButton),
     GamepadButton((GamepadButton, Option<u32>)),
+    AxisEvent((AxisDirection, String)),
 }
 
 impl Into<Key> for KeyCode {
@@ -312,6 +313,12 @@ impl Into<Key> for (GamepadButton, Option<u32>) {
 impl Into<Key> for GamepadButton {
     fn into(self) -> Key {
         Key::GamepadButton((self, None))
+    }
+}
+
+impl Into<Key> for (AxisDirection, String) {
+    fn into(self) -> Key {
+        Key::AxisEvent(self)
     }
 }
 
@@ -469,32 +476,6 @@ impl Axis {
         } else {
             self.value += amount_to_move;
         }
-
-        /*// kind of a mess, but not sure how to make it cleaner.
-        if difference > 0.0 {
-            if let Some(sensitivity) = self.sensitivity {
-                let amount_to_move = sensitivity * delta_time;
-                if amount_to_move > difference {
-                    self.value = raw_value;
-                } else {
-                    self.value += amount_to_move;
-                }
-            } else {
-                self.value = raw_value;
-            }
-        } else if difference < 0.0 {
-            if let Some(gravity) = self.gravity {
-                let amount_to_move = -1.0 * gravity * delta_time;
-
-                if amount_to_move < difference {
-                    self.value = raw_value;
-                } else {
-                    self.value += amount_to_move;
-                }
-            } else {
-                self.value = raw_value;
-            }
-        }*/
     }
 }
 
@@ -757,6 +738,20 @@ impl Input {
                         && keystate > highest
                     {
                         highest = keystate;
+                    }
+                }
+                Key::AxisEvent((direction, axis)) => {
+                    let axis = self.get_axis(&axis);
+
+                    let is_active = match direction {
+                        AxisDirection::X => axis.abs() > 0.25,
+                        AxisDirection::Y => axis.abs() > 0.25,
+                    };
+
+                    // this isn't the greatest but currently there is no way to find the delta of the axis.
+                    // which would be neccessary to determine if the axis was pressed or held or released.
+                    if is_active && KeyState::Held > highest {
+                        highest = KeyState::Held;
                     }
                 }
             }

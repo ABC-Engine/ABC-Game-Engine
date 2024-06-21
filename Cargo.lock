@@ -19,7 +19,7 @@ name = "ABC_Game_Engine"
 version = "0.1.0"
 dependencies = [
  "ABC-ECS",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
  "fxhash",
  "gilrs",
  "glam",
@@ -345,7 +345,7 @@ name = "bullet_heaven"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0",
+ "console_renderer",
  "rand",
 ]
 
@@ -424,7 +424,7 @@ name = "camera_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
 ]
 
 [[package]]
@@ -540,18 +540,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ca0197aee26d1ae37445ee532fefce43251d24cc7c166799f4d46817f1d3973"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "console_renderer"
-version = "0.1.0"
-dependencies = [
- "ABC_Game_Engine",
- "colored",
- "crossterm",
- "image",
- "rand",
- "winput",
 ]
 
 [[package]]
@@ -1602,7 +1590,7 @@ name = "mask_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
 ]
 
 [[package]]
@@ -2042,7 +2030,7 @@ name = "pixel_scaling_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
 ]
 
 [[package]]
@@ -2374,7 +2362,7 @@ name = "render_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
 ]
 
 [[package]]
@@ -2666,7 +2654,7 @@ name = "spritesheet_example"
 version = "0.1.0"
 dependencies = [
  "ABC_Game_Engine",
- "console_renderer 0.1.0 (git+https://github.com/ABC-Engine/console_renderer)",
+ "console_renderer",
 ]
 
 [[package]]
