@@ -284,14 +284,33 @@ impl Ord for KeyState {
     }
 }
 
+pub enum AxisEventDirection {
+    /// left or down
+    Negative,
+    /// right or up
+    Positive,
+}
+
 /// An axis event is an event that is triggered when an axis passes a certain threshold.
 pub struct AxisEvent {
-    direction: AxisDirection,
+    direction: AxisEventDirection,
     axis: String,
     // how much the axis has to be pressed to be considered pressed.
     // this is a bit of a confusing name, because it's the same as the deadzone for gamepad axes.
     // but it's the same concept except not analog.
+    // always positive
     threshold: f32,
+}
+
+impl AxisEvent {
+    /// Creates a new axis event.
+    pub fn new(direction: AxisEventDirection, axis: String, threshold: f32) -> Self {
+        Self {
+            direction,
+            axis,
+            threshold: threshold.abs(),
+        }
+    }
 }
 
 /// For either a key or a mouse button.
@@ -408,6 +427,7 @@ pub struct Axis {
     // the higher the value, the faster the axis moves.
     sensitivity: Option<f32>,
     value: f32,
+    presvious_value: f32,
 }
 
 impl Axis {
@@ -420,6 +440,7 @@ impl Axis {
             gravity: None,
             sensitivity: None,
             value: 0.0,
+            presvious_value: 0.0,
         }
     }
 
@@ -480,6 +501,8 @@ impl Axis {
 
     /// gets the value of the axis.
     pub fn update_value_from_raw(&mut self, raw_value: f32, delta_time: f32) {
+        self.presvious_value = self.value;
+
         let difference = raw_value - self.value;
 
         let multiplier;
@@ -796,14 +819,33 @@ impl Input {
                     let axis = self.get_axis(&axis_event.axis);
 
                     let is_active = match axis_event.direction {
-                        AxisDirection::X => axis.abs() > axis_event.threshold,
-                        AxisDirection::Y => axis.abs() > axis_event.threshold,
+                        AxisEventDirection::Negative => axis < -axis_event.threshold,
+                        AxisEventDirection::Positive => axis > axis_event.threshold,
                     };
 
                     // this isn't the greatest but currently there is no way to find the delta of the axis.
                     // which would be neccessary to determine if the axis was pressed or held or released.
-                    if is_active && KeyState::Held > highest {
+                    /*if is_active && KeyState::Held > highest {
                         highest = KeyState::Held;
+                    }*/
+
+                    let previous_axis = self.get_previous_axis(&axis_event.axis);
+                    let was_active = match axis_event.direction {
+                        AxisEventDirection::Negative => previous_axis < -axis_event.threshold,
+                        AxisEventDirection::Positive => previous_axis > axis_event.threshold,
+                    };
+
+                    let mut current_state = KeyState::NotPressed;
+                    if was_active && !is_active {
+                        current_state = KeyState::Released;
+                    } else if is_active && !was_active {
+                        current_state = KeyState::Pressed;
+                    } else if is_active {
+                        current_state = KeyState::Held;
+                    }
+
+                    if current_state > highest {
+                        highest = current_state;
                     }
                 }
             }
@@ -948,6 +990,20 @@ impl Input {
         );
 
         axis.value
+    }
+
+    /// gets the previous value of an axis.
+    fn get_previous_axis(&self, name: &str) -> f32 {
+        let axis = self.axes.get(name).expect(
+            format!(
+                "Axis {} not found... did you ever add it? the list of available axes are: {:?}",
+                name,
+                self.axes.keys()
+            )
+            .as_str(),
+        );
+
+        axis.presvious_value
     }
 }
 
@@ -1252,7 +1308,7 @@ mod tests {
 
         let axis_related_button = Button::new(
             vec![Key::AxisEvent(AxisEvent {
-                direction: AxisDirection::X,
+                direction: AxisEventDirection::Positive,
                 axis: "test".to_string(),
                 threshold: 0.5,
             })],
@@ -1288,8 +1344,6 @@ mod tests {
             .get_resource_mut::<Input>()
             .expect("Input not found");
 
-        // this is known to fail for now because the axis event doesn't have a delta.
-        // this is a known issue and will be fixed in the future. so this test will fail until then.
         assert_eq!(
             input.get_button_state("axis_related_button"),
             KeyState::Pressed
