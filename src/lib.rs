@@ -75,6 +75,42 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
     }
 }
 
+/// a is the parent
+impl<'a, 'b> std::ops::Sub<&'b Transform> for &'a Transform {
+    type Output = Transform;
+
+    fn sub(self, other: &'b Transform) -> Transform {
+        Transform {
+            x: self.x - other.x,
+            y: self.y - other.y,
+            z: self.z - other.z,
+            rotation: self.rotation - other.rotation,
+            scale: self.scale / other.scale,
+            origin_x: self.origin_x + other.x as f32,
+            origin_y: self.origin_y + other.y as f32,
+        }
+    }
+}
+
+fn get_transform_recursive(
+    entity: Entity,
+    entities_and_components: &EntitiesAndComponents,
+    mut transform_offset: Transform,
+) -> Transform {
+    let (transform,) = entities_and_components.try_get_components::<(Transform,)>(entity);
+    if let Some(transform) = transform {
+        transform_offset = &transform_offset + transform;
+    }
+
+    let parent = entities_and_components.get_parent(entity);
+    if let Some(parent) = parent {
+        return &transform_offset
+            + &get_transform_recursive(parent, entities_and_components, transform_offset);
+    } else {
+        return transform_offset;
+    }
+}
+
 /// Scene is responsible for holding all objects and the background color
 pub struct Scene {
     pub world: World,

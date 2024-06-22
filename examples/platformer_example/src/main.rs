@@ -70,9 +70,6 @@ impl System for PlayerController {
                     .get_associated_entity_with_collider_handle(collider_handle.into())
                     .expect("Failed to get associated entity with collider handle");
 
-                let (entities_and_components, entity) =
-                    entity.access_entity(entities_and_components);
-
                 entities_and_components
                     .try_get_components::<(Ground,)>(entity)
                     .0
@@ -98,8 +95,7 @@ impl System for PlayerController {
                 let intersection = intersection.unwrap();
 
                 if intersection.1 < 0.01 {
-                    let (_, intersection_entity) =
-                        intersection.0.access_entity(entities_and_components);
+                    let intersection_entity = intersection.0;
 
                     if intersection_entity == player_entity {
                         panic!("Player is intersecting with itself");

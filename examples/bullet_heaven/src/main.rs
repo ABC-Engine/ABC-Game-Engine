@@ -1,6 +1,6 @@
-use core::f64;
 /// A basic bullet heaven made with the library
-/// not yet complete
+/// DO NOT use the children method used here, that is just because console renderer is not yet updated to the new version of the engine
+use core::f64;
 use rand::Rng;
 use std::thread;
 use std::{time::Instant, vec};

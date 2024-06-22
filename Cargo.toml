@@ -3,7 +3,6 @@ members = [
     "examples/audio_example",
     "examples/bullet_heaven",
     "examples/camera_example",
-    "examples/mask_example",
     "examples/pixel_scaling_example",
     "examples/platformer_example",
     "examples/render_example",
