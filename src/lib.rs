@@ -10,6 +10,7 @@ pub use ABC_ECS::{
     SingleMutEntity, System, World,
 };
 pub mod physics;
+pub mod ui;
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
 #[derive(Clone, Copy, Debug, PartialEq)]
