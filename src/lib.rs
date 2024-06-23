@@ -69,8 +69,8 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
             z: self.z + other.z,
             rotation: self.rotation + other.rotation,
             scale: self.scale * other.scale,
-            origin_x: self.origin_x - other.x as f32,
-            origin_y: self.origin_y - other.y as f32,
+            origin_x: self.origin_x - other.origin_x as f32,
+            origin_y: self.origin_y - other.origin_y as f32,
         }
     }
 }
@@ -86,8 +86,8 @@ impl<'a, 'b> std::ops::Sub<&'b Transform> for &'a Transform {
             z: self.z - other.z,
             rotation: self.rotation - other.rotation,
             scale: self.scale / other.scale,
-            origin_x: self.origin_x + other.x as f32,
-            origin_y: self.origin_y + other.y as f32,
+            origin_x: self.origin_x + other.origin_x as f32,
+            origin_y: self.origin_y + other.origin_y as f32,
         }
     }
 }
@@ -104,11 +104,14 @@ fn get_transform_recursive(
 
     let parent = entities_and_components.get_parent(entity);
     if let Some(parent) = parent {
-        return &transform_offset
-            + &get_transform_recursive(parent, entities_and_components, transform_offset);
+        return get_transform_recursive(parent, entities_and_components, transform_offset);
     } else {
         return transform_offset;
     }
+}
+
+pub fn get_transform(entity: Entity, entities_and_components: &EntitiesAndComponents) -> Transform {
+    get_transform_recursive(entity, entities_and_components, Transform::default())
 }
 
 /// Scene is responsible for holding all objects and the background color
