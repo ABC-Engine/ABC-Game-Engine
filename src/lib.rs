@@ -110,6 +110,7 @@ fn get_transform_recursive(
     }
 }
 
+/// gets the transform of an entity, this will return the total transform of the entity, including the transform(s) of the parent(s)
 pub fn get_transform(entity: Entity, entities_and_components: &EntitiesAndComponents) -> Transform {
     get_transform_recursive(entity, entities_and_components, Transform::default())
 }

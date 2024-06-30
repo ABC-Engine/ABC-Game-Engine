@@ -1,0 +1,8 @@
+[package]
+name = "ui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ABC_Game_Engine = { path = "../../" }
+ABC_lumenpyx = { path = "../../../ABC_Lumenpyx" }

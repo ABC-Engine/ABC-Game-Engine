@@ -6,7 +6,7 @@ members = [
     "examples/pixel_scaling_example",
     "examples/platformer_example",
     "examples/render_example",
-    "examples/spritesheet_example",
+    "examples/spritesheet_example", "examples/ui",
 ]
 
 [package]
