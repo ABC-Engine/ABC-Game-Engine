@@ -15,8 +15,7 @@ use ABC_lumenpyx::RenderSettings;
 fn main() {
     let mut scene = Scene::new();
 
-    let mut lumenpyx_eventloop =
-        LumenpyxEventLoop::new(&mut scene.world, [160, 160], "Platformer Example");
+    let mut lumenpyx_eventloop = LumenpyxEventLoop::new(&mut scene.world, [160, 160], "UI Example");
 
     lumenpyx_eventloop.set_render_settings(
         &mut scene.world,
@@ -31,11 +30,22 @@ fn main() {
 
         entities_and_components.add_entity_with((camera, Transform::default()));
 
-        let slider = Slider::new(0.0, 100.0, 0.0, 100.0).with_callback(|_, value| {
-            println!("Slider value: {}", value);
-        });
+        let mut slider = Slider::new(0.0, 100.0, -50.0, 50.0)
+            .with_callback(|_, value| {
+                println!("Slider value: {}", value);
+            })
+            .with_width(5.0);
 
-        let slider_entity = entities_and_components.add_entity_with((slider, Transform::default()));
+        let slider_entity = entities_and_components.add_entity_with((Transform::default(),));
+
+        let knob = Circle::new([1.0, 1.0, 1.0, 1.0], 5.0);
+        let knob_entity = entities_and_components.add_entity_with((knob, Transform::default()));
+
+        entities_and_components.set_parent(knob_entity, slider_entity);
+
+        slider.set_knob_entity(knob_entity);
+
+        entities_and_components.add_component_to(slider_entity, slider);
     }
 
     add_all_systems(&mut scene.world);

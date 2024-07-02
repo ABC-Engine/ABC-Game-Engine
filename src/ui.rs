@@ -19,6 +19,7 @@ pub struct Slider {
     callback: fn(&mut EntitiesAndComponents, f32),
     value_changed: bool,
     knob_entity: Option<Entity>,
+    mouse_was_held: bool,
 }
 
 impl Slider {
@@ -33,6 +34,7 @@ impl Slider {
             callback: |_, _| {},
             value_changed: false,
             knob_entity: None,
+            mouse_was_held: false,
         }
     }
 
@@ -172,15 +174,22 @@ impl System for SliderSystem {
             if is_held {
                 let dist_from_center_y = (mouse_position[1] - transform.y as f32).abs();
 
-                if mouse_position[0] >= slider.min_position
+                if (mouse_position[0] >= slider.min_position
                     && mouse_position[0] <= slider.max_position
-                    && dist_from_center_y <= slider.width / 2.0
+                    && dist_from_center_y <= slider.width / 2.0)
+                    || slider.mouse_was_held
                 {
                     let percentage = (mouse_position[0] - slider.min_position)
                         / (slider.max_position - slider.min_position);
-                    slider.value =
-                        slider.min_value + (slider.max_value - slider.min_value) * percentage;
+
+                    slider.set_value(
+                        slider.min_value + (slider.max_value - slider.min_value) * percentage,
+                    );
+
+                    slider.mouse_was_held = true;
                 }
+            } else {
+                slider.mouse_was_held = false;
             }
 
             if slider.value_changed {
@@ -191,25 +200,25 @@ impl System for SliderSystem {
             }
 
             let slider = entities_and_components
-                .get_components_mut::<(Slider,)>(entity)
-                .0;
+                .get_components::<(Slider,)>(entity)
+                .0
+                .clone();
 
             let knob_entity = slider.knob_entity.clone();
             let min_position = slider.min_position;
             let max_position = slider.max_position;
 
             if let Some(knob_entity) = knob_entity {
-                let knob_transform = crate::get_transform(knob_entity, entities_and_components);
-                let knob_transform = Transform {
-                    x: ((min_position + max_position) / 2.0) as f64,
-                    y: transform.y,
-                    ..knob_transform
-                };
+                let knob_x = min_position
+                    + (max_position - min_position)
+                        * ((slider.value - slider.min_value)
+                            / (slider.max_value - slider.min_value));
 
-                *entities_and_components
+                entities_and_components
                     .try_get_components_mut::<(Transform,)>(knob_entity)
                     .0
-                    .expect("Failed to get knob transform") = knob_transform;
+                    .expect("Failed to get knob transform")
+                    .x = knob_x as f64;
             }
         }
     }
