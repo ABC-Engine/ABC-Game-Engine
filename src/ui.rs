@@ -224,9 +224,112 @@ impl System for SliderSystem {
     }
 }
 
+pub struct Button {
+    callback: fn(&mut EntitiesAndComponents, bool),
+    was_held: bool,
+    width: f32,
+    height: f32,
+}
+
+impl Button {
+    pub fn new() -> Self {
+        Button {
+            callback: |_, _| {},
+            was_held: false,
+            width: 10.0,
+            height: 10.0,
+        }
+    }
+
+    pub fn set_callback(&mut self, callback: fn(&mut EntitiesAndComponents, bool)) {
+        self.callback = callback;
+    }
+
+    pub fn with_callback(mut self, callback: fn(&mut EntitiesAndComponents, bool)) -> Self {
+        self.callback = callback;
+        self
+    }
+
+    pub fn get_callback(&self) -> fn(&mut EntitiesAndComponents, bool) {
+        self.callback
+    }
+
+    pub fn set_width(&mut self, width: f32) {
+        self.width = width;
+    }
+
+    pub fn set_height(&mut self, height: f32) {
+        self.height = height;
+    }
+
+    pub fn with_width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn with_height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
+    }
+
+    pub fn get_width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn get_height(&self) -> f32 {
+        self.height
+    }
+}
+
+struct ButtonSystem;
+
+impl System for ButtonSystem {
+    fn run(&mut self, entities_and_components: &mut EntitiesAndComponents) {
+        let entities_with_button = entities_and_components
+            .get_entities_with_component::<Button>()
+            .cloned()
+            .collect::<Vec<Entity>>();
+
+        for entity in entities_with_button {
+            let transform = crate::get_transform(entity, entities_and_components);
+
+            let input = entities_and_components
+                .get_resource::<Input>()
+                .expect("Failed to get input");
+
+            let mouse_position = input.get_mouse_position();
+            let is_held = input.get_mouse_state(MouseButton::Left) == KeyState::Held
+                || input.get_mouse_state(MouseButton::Left) == KeyState::Pressed;
+
+            let button = entities_and_components
+                .get_components::<(Button,)>(entity)
+                .0;
+
+            let dist_from_center_x = (transform.x as f32 - mouse_position[0]).abs();
+            let dist_from_center_y = (transform.y as f32 - mouse_position[1]).abs();
+
+            if dist_from_center_x <= button.width / 2.0 && dist_from_center_y <= button.height / 2.0
+            {
+                if is_held && !button.was_held {
+                    (button.callback)(entities_and_components, true);
+                } else if button.was_held && !is_held {
+                    (button.callback)(entities_and_components, false);
+                }
+            }
+
+            let button = entities_and_components
+                .get_components_mut::<(Button,)>(entity)
+                .0;
+            button.was_held = is_held;
+        }
+    }
+}
+
 pub(crate) fn add_all_ui_systems(world: &mut World) {
     // remove all ui systems to prevent duplicates
     world.remove_all_systems_of_type::<SliderSystem>();
+    world.remove_all_systems_of_type::<ButtonSystem>();
 
     world.add_system(SliderSystem {});
+    world.add_system(ButtonSystem {});
 }
