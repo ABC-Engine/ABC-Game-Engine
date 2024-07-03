@@ -30,18 +30,21 @@ fn main() {
 
         entities_and_components.add_entity_with((camera, Transform::default()));
 
+        let slider_rect = Rectangle::new([0.0, 1.0, 0.0, 1.0], 100.0, 4.0);
+
+        let slider_entity =
+            entities_and_components.add_entity_with((Transform::default(), slider_rect));
+
+        let knob = Circle::new([1.0, 1.0, 1.0, 1.0], 4.0);
+        let knob_entity = entities_and_components.add_entity_with((knob, Transform::default()));
+
+        entities_and_components.set_parent(knob_entity, slider_entity);
+
         let mut slider = Slider::new(0.0, 100.0, -50.0, 50.0)
             .with_callback(|_, value| {
                 println!("Slider value: {}", value);
             })
             .with_width(5.0);
-
-        let slider_entity = entities_and_components.add_entity_with((Transform::default(),));
-
-        let knob = Circle::new([1.0, 1.0, 1.0, 1.0], 5.0);
-        let knob_entity = entities_and_components.add_entity_with((knob, Transform::default()));
-
-        entities_and_components.set_parent(knob_entity, slider_entity);
 
         slider.set_knob_entity(knob_entity);
 
