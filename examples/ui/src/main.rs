@@ -34,6 +34,8 @@ fn main() {
         add_slider(entities_and_components);
 
         add_button(entities_and_components);
+
+        add_scrollbar(entities_and_components);
     }
 
     add_all_systems(&mut scene.world);
@@ -91,4 +93,25 @@ fn add_button(entities_and_components: &mut EntitiesAndComponents) {
         .with_height(10.0);
 
     entities_and_components.add_component_to(button_entity, button);
+}
+
+fn add_scrollbar(entities_and_components: &mut EntitiesAndComponents) {
+    let scrollbar_rect = Rectangle::new([0.0, 0.0, 1.0, 1.0], 4.0, 100.0);
+
+    let scrollbar_entity =
+        entities_and_components.add_entity_with((Transform::default(), scrollbar_rect));
+
+    let knob = Rectangle::new([1.0, 1.0, 1.0, 1.0], 4.0, 10.0);
+    let knob_entity = entities_and_components.add_entity_with((knob, Transform::default()));
+
+    entities_and_components.set_parent(knob_entity, scrollbar_entity);
+
+    let mut scrollbar = ui::ScrollBar::new(0.0, 100.0, 0.0, 100.0)
+        .with_callback(|_, value| {
+            println!("Scrollbar value: {}", value);
+        })
+        .with_width(4.0)
+        .with_knob_entity(knob_entity);
+
+    entities_and_components.add_component_to(scrollbar_entity, scrollbar);
 }
