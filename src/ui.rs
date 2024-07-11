@@ -338,6 +338,7 @@ pub struct ScrollBar {
     knob_entity: Option<Entity>,
     content_entity: Option<Entity>,
     mouse_was_held: bool,
+    scroll_speed: f32,
 }
 
 impl ScrollBar {
@@ -364,6 +365,7 @@ impl ScrollBar {
             knob_entity: None,
             content_entity: None,
             mouse_was_held: false,
+            scroll_speed: 1.0,
         }
     }
 
@@ -386,6 +388,11 @@ impl ScrollBar {
         self.content_entity = Some(content_entity);
         self
     }
+
+    pub fn with_scroll_speed(mut self, scroll_speed: f32) -> Self {
+        self.scroll_speed = scroll_speed;
+        self
+    }
 }
 
 struct ScrollBarSystem;
@@ -405,12 +412,19 @@ impl System for ScrollBarSystem {
                 .expect("Failed to get input");
 
             let mouse_position = input.get_mouse_position();
+
+            let delta_scroll = input.get_mouse_wheel();
+
             let is_held = input.get_mouse_state(MouseButton::Left) == KeyState::Held
                 || input.get_mouse_state(MouseButton::Left) == KeyState::Pressed;
 
             let scroll_bar = entities_and_components
                 .get_components_mut::<(ScrollBar,)>(entity)
                 .0;
+
+            if delta_scroll.abs() > 0.01 {
+                scroll_bar.set_value(scroll_bar.value + delta_scroll as f32 * scroll_bar.scroll_speed);
+            }
 
             if is_held {
                 let dist_from_center_x = (transform.x as f32 - mouse_position[0]).abs();

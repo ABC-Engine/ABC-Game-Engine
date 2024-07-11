@@ -127,7 +127,8 @@ fn add_scrollbar(entities_and_components: &mut EntitiesAndComponents, content_en
         })
         .with_width(4.0)
         .with_knob_entity(knob_entity)
-        .with_content_entity(content_entity);
+        .with_content_entity(content_entity)
+        .with_scroll_speed(4.0);
 
     entities_and_components.add_component_to(scrollbar_entity, scrollbar);
 }
