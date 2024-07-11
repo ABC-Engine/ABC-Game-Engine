@@ -381,6 +381,11 @@ impl ScrollBar {
         self.knob_entity = Some(knob_entity);
         self
     }
+
+    pub fn with_content_entity(mut self, content_entity: Entity) -> Self {
+        self.content_entity = Some(content_entity);
+        self
+    }
 }
 
 struct ScrollBarSystem;
@@ -408,19 +413,19 @@ impl System for ScrollBarSystem {
                 .0;
 
             if is_held {
-                let dist_from_center_y = (mouse_position[1] - transform.y as f32).abs();
+                let dist_from_center_x = (transform.x as f32 - mouse_position[0]).abs();
 
-                if (mouse_position[0] >= scroll_bar.min_bar_position
-                    && mouse_position[0] <= scroll_bar.max_bar_position
-                    && dist_from_center_y <= scroll_bar.width / 2.0)
-                    || scroll_bar.mouse_was_held
-                {
-                    let percentage = (mouse_position[0] - scroll_bar.min_bar_position)
+                let is_in_bounds = mouse_position[1] >= scroll_bar.min_bar_position
+                    && mouse_position[1] <= scroll_bar.max_bar_position
+                    && dist_from_center_x <= scroll_bar.width / 2.0;
+
+                if is_in_bounds || scroll_bar.mouse_was_held {
+                    let percentage = (mouse_position[1] - scroll_bar.min_bar_position)
                         / (scroll_bar.max_bar_position - scroll_bar.min_bar_position);
 
                     scroll_bar.set_value(
-                        scroll_bar.min_content_position
-                            + (scroll_bar.max_content_position - scroll_bar.min_content_position)
+                        scroll_bar.min_bar_position
+                            + (scroll_bar.max_bar_position - scroll_bar.min_bar_position)
                                 * percentage,
                     );
 
@@ -446,7 +451,7 @@ impl System for ScrollBarSystem {
             let max_position = scroll_bar.max_bar_position;
 
             if let Some(knob_entity) = knob_entity {
-                let knob_x = min_position
+                let knob_y = min_position
                     + (max_position - min_position)
                         * ((scroll_bar.value - scroll_bar.min_bar_position)
                             / (scroll_bar.max_bar_position - scroll_bar.min_bar_position));
@@ -455,7 +460,7 @@ impl System for ScrollBarSystem {
                     .try_get_components_mut::<(Transform,)>(knob_entity)
                     .0
                     .expect("Failed to get knob transform")
-                    .x = knob_x as f64;
+                    .y = knob_y as f64;
             }
 
             if let Some(content_entity) = scroll_bar.content_entity.clone() {
@@ -464,12 +469,12 @@ impl System for ScrollBarSystem {
                     .0
                     .expect("Failed to get content transform");
 
-                let content_x = scroll_bar.min_content_position
+                let content_y = scroll_bar.min_content_position
                     + (scroll_bar.max_content_position - scroll_bar.min_content_position)
                         * ((scroll_bar.value - scroll_bar.min_bar_position)
                             / (scroll_bar.max_bar_position - scroll_bar.min_bar_position));
 
-                content_transform.x = content_x as f64;
+                content_transform.y = content_y as f64;
             }
         }
     }
