@@ -121,7 +121,7 @@ fn add_scrollbar(entities_and_components: &mut EntitiesAndComponents, content_en
 
     entities_and_components.set_parent(knob_entity, scrollbar_entity);
 
-    let mut scrollbar = ui::ScrollBar::new(-30.0, 30.0, -50.0, 50.0)
+    let scrollbar = ui::ScrollBar::new(-30.0, 30.0, -50.0, 50.0)
         .with_callback(|_, value| {
             println!("Scrollbar value: {}", value);
         })

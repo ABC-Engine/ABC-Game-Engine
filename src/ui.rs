@@ -423,7 +423,8 @@ impl System for ScrollBarSystem {
                 .0;
 
             if delta_scroll.abs() > 0.01 {
-                scroll_bar.set_value(scroll_bar.value + delta_scroll as f32 * scroll_bar.scroll_speed);
+                scroll_bar
+                    .set_value(scroll_bar.value + delta_scroll as f32 * scroll_bar.scroll_speed);
             }
 
             if is_held {

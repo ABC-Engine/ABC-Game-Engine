@@ -9,6 +9,7 @@ pub use ABC_ECS::{
     Component, EntitiesAndComponents, EntitiesAndComponentsThreadSafe, Entity, Resource,
     SingleMutEntity, System, World,
 };
+pub(crate) mod crash_handler;
 pub mod physics;
 pub mod ui;
 
@@ -122,6 +123,19 @@ pub struct Scene {
 
 impl Scene {
     pub fn new() -> Scene {
+        let mut scene = Scene {
+            world: World::new(),
+        };
+
+        add_default_resources(&mut scene);
+        crash_handler::crash_handler();
+
+        scene
+    }
+
+    /// creates a new scene without the crash handler
+    /// easier for testing, but make sure to switch to Scene::new() when you are done testing and want to ship the game
+    pub fn new_without_crash_handler() -> Scene {
         let mut scene = Scene {
             world: World::new(),
         };
