@@ -5,31 +5,30 @@ use std::process::{Command, Stdio};
 // i made a random generated argument to prevent anyone from accidentally using this argument
 const ABC_ERROR_ARG: &str = "ZAjRo6ydRgerpaPLm8iZ";
 const MAX_LOG_COUNT: usize = 20;
+const CRASH_DIR: &str = "./crashes";
 
 pub(crate) fn crash_handler() {
     if !env::args().any(|arg| arg == ABC_ERROR_ARG) {
         remove_empty_logs();
 
-        if std::fs::read_dir("./crashes").is_err() {
-            std::fs::create_dir("./crashes").expect("Could not create crashes folder");
+        if std::fs::read_dir(CRASH_DIR).is_err() {
+            std::fs::create_dir(CRASH_DIR).expect("Could not create crashes folder");
         }
 
         let date_and_time = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
         let log_path = format!("crashes/error-{}.log", date_and_time);
 
-        println!("logging error to: {}", log_path);
+        //println!("logging error to: {}", log_path);
         let log_file = File::create(log_path).expect("Could not create log file");
         let stderr = Stdio::from(log_file);
 
         let new_args: Vec<String> = env::args().chain(vec![ABC_ERROR_ARG.to_string()]).collect();
-        let mut child =
+        let _child =
             Command::new(std::env::current_exe().expect("Could not get current executable"))
                 .args(new_args)
                 .stderr(stderr)
                 .spawn()
                 .expect("Failed to start child process");
-
-        let _result = child.wait().expect("Failed to wait on child process");
 
         remove_old_logs();
 
@@ -40,7 +39,7 @@ pub(crate) fn crash_handler() {
 
 fn remove_empty_logs() {
     // get all files in the current directory
-    let files = std::fs::read_dir(".").expect("Could not read directory");
+    let files = std::fs::read_dir(CRASH_DIR).expect("Could not read directory");
 
     for file in files {
         let file = file.expect("Could not get file");
@@ -64,7 +63,7 @@ fn remove_empty_logs() {
 
 fn remove_old_logs() {
     // get all files in the current directory
-    let files = std::fs::read_dir(".").expect("Could not read directory");
+    let files = std::fs::read_dir(CRASH_DIR).expect("Could not read directory");
 
     let mut logs: Vec<String> = Vec::new();
 
