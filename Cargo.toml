@@ -27,6 +27,7 @@ rapier2d = "0.19.0"
 tracing = "0.1.40"
 gilrs = "0.10.7"
 chrono = "0.4.38"
+serde = "1.0.204"
 
 [patch.'https://github.com/ABC-Engine/ABC-Game-Engine']
 ABC_Game_Engine = { path = "." }
