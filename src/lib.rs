@@ -11,6 +11,7 @@ pub use ABC_ECS::{
 };
 pub(crate) mod crash_handler;
 pub mod physics;
+pub mod save_file_manager;
 pub mod ui;
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
