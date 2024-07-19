@@ -9,11 +9,12 @@ const CRASH_DIR: &str = "./crashes";
 
 pub(crate) fn crash_handler() {
     if !env::args().any(|arg| arg == ABC_ERROR_ARG) {
-        remove_empty_logs();
-
         if std::fs::read_dir(CRASH_DIR).is_err() {
             std::fs::create_dir(CRASH_DIR).expect("Could not create crashes folder");
         }
+
+        remove_empty_logs();
+        remove_old_logs();
 
         let date_and_time = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
         let log_path = format!("crashes/error-{}.log", date_and_time);
@@ -29,8 +30,6 @@ pub(crate) fn crash_handler() {
                 .stderr(stderr)
                 .spawn()
                 .expect("Failed to start child process");
-
-        remove_old_logs();
 
         // exit the program, the child process will be started which runs the program again the exact same way but skips this block
         std::process::exit(0);

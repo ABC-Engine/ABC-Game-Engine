@@ -336,8 +336,18 @@ impl AudioHandle {
         self.buses.get(bus)
     }
 
+    pub fn get_bus_mut(&mut self, bus: &str) -> Option<&mut AudioBus> {
+        self.buses.get_mut(bus)
+    }
+
     /// gets the bus with the given name or creates a new one if it doesn't exist
-    pub fn get_or_make_bus(&mut self, bus: &str) -> &mut AudioBus {
+    pub fn get_or_make_bus(&mut self, bus: &str) -> &AudioBus {
+        self.buses
+            .entry(bus.to_string())
+            .or_insert_with(|| AudioBus::new(bus))
+    }
+
+    pub fn get_or_make_bus_mut(&mut self, bus: &str) -> &mut AudioBus {
         self.buses
             .entry(bus.to_string())
             .or_insert_with(|| AudioBus::new(bus))
