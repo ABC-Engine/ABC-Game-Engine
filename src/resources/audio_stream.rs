@@ -255,7 +255,7 @@ impl AudioHandle {
     }
 
     pub fn get_master_volume(&self) -> f32 {
-        self.master_volume
+        self.master_volume / 0.1
     }
 
     /// 1.0 is normal speed
