@@ -66,29 +66,14 @@ fn rotate_about_origin(x1: f64, y1: f64, x2: f64, y2: f64, rotation: f64) -> (f6
     (new_x, new_y)
 }
 
-fn inverse_rotate_about_origin(
-    new_x: f64,
-    new_y: f64,
-    x1: f64,
-    y1: f64,
-    rotation: f64,
-) -> (f64, f64) {
-    // Use the negative of the original rotation angle
-    let inverse_rotation = -rotation;
-
-    // Apply the inverse rotation
-    let x2 = x1 + (new_x - x1) * inverse_rotation.cos() - (new_y - y1) * inverse_rotation.sin();
-    let y2 = y1 + (new_x - x1) * inverse_rotation.sin() + (new_y - y1) * inverse_rotation.cos();
-
-    (x2, y2)
-}
-
-/// a is the parent
+/// self is the parent
 impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
     type Output = Transform;
 
     fn add(self, other: &'b Transform) -> Transform {
-        let (new_x, new_y) = rotate_about_origin(self.x, self.y, other.x, other.y, self.rotation);
+        let new_x = self.x + other.x;
+        let new_y = self.y + other.y;
+        let (new_x, new_y) = rotate_about_origin(self.x, self.y, new_x, new_y, self.rotation);
 
         let new_transform = Transform {
             x: new_x,
@@ -105,31 +90,25 @@ impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
 }
 
 /// used to "unparent" an object
-/// a is the parent
+/// other is the parent
 impl<'a, 'b> std::ops::Sub<&'b Transform> for &'a Transform {
     type Output = Transform;
 
     fn sub(self, other: &'b Transform) -> Transform {
-        let x = self.x;
-        let y = self.y;
-        let p1_x = other.x;
-        let p1_y = other.y;
-        let rotation = self.rotation - other.rotation;
+        // rotate opposite direction
+        let x1 = other.x;
+        let y1 = other.y;
+        let x2 = self.x;
+        let y2 = self.y;
+        let rotation = -other.rotation;
 
-        // this should be the reverse of the rotation... but its not working right now so i need to fix it
-        let p2_x = ((-x + p1_x) / rotation.sin() - p1_x * (1.0 / rotation.tan()) + p1_y
-            - ((y - p1_y) / rotation.cos())
-            - p1_x * rotation.tan()
-            + p1_y)
-            / (rotation.tan() + 1.0 / rotation.tan());
-
-        let p2_y =
-            -(x - p1_x + p1_x * rotation.cos() - p1_y * rotation.sin() - p2_x * rotation.cos())
-                / rotation.sin();
+        let (mut new_x, mut new_y) = rotate_about_origin(x1, y1, x2, y2, rotation);
+        new_x -= x1;
+        new_y -= y1;
 
         Transform {
-            x: p2_x,
-            y: p2_y,
+            x: new_x,
+            y: new_y,
             z: self.z - other.z,
             rotation: self.rotation - other.rotation,
             scale: self.scale / other.scale,
@@ -226,13 +205,13 @@ mod tests {
             origin_y: 0.0,
         };
 
-        let a_plus_b = &a + &b;
-        let a_plus_b_minus_b = &a_plus_b - &b;
+        let b_plus_a = &b + &a;
+        let a_plus_b_minus_b = &b_plus_a - &b;
 
         if a_plus_b_minus_b != a {
             println!("{:?}", a);
             println!("{:?}", b);
-            println!("{:?}", a_plus_b);
+            println!("{:?}", b_plus_a);
             println!("{:?}", a_plus_b_minus_b);
             panic!("{:?} != {:?}", a_plus_b_minus_b, a);
         }
