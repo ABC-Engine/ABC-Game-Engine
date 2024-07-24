@@ -752,7 +752,7 @@ fn update_rb(
     world: &mut EntitiesAndComponents,
     rigidbody_entity: Entity,
 ) {
-    let transform = crate::get_transform_recursive(rigidbody_entity, world, Transform::default());
+    let transform = crate::get_transform(rigidbody_entity, world);
 
     let (rigidbody, rigidbody_handle) =
         world.try_get_components_mut::<(RigidBody, RigidBodyHandle)>(rigidbody_entity);
@@ -932,7 +932,7 @@ fn set_all_rigid_bodies_and_colliders(
     let collider_set = &physics_info.collider_set;
 
     for (rb_handle, entity) in physics_info.rigid_body_handle_map.iter() {
-        let transform_total = crate::get_transform_recursive(*entity, world, Transform::default());
+        let transform_total = crate::get_transform(*entity, world);
 
         let (rigidbody, transform, rigidbody_handle) =
             world.try_get_components_mut::<(RigidBody, Transform, RigidBodyHandle)>(*entity);

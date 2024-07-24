@@ -5,7 +5,7 @@ members = [
     "examples/camera_example", "examples/crash",
     "examples/pixel_scaling_example",
     "examples/platformer_example",
-    "examples/render_example",
+    "examples/render_example", "examples/rotation_example",
     "examples/spritesheet_example", "examples/ui",
 ]
 

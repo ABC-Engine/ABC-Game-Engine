@@ -59,61 +59,113 @@ impl Transform {
     }
 }
 
+fn rotate_about_origin(x1: f64, y1: f64, x2: f64, y2: f64, rotation: f64) -> (f64, f64) {
+    let new_x = x1 + (x2 - x1) * rotation.cos() as f64 - (y2 - y1) * rotation.sin() as f64;
+    let new_y = y1 + (x2 - x1) * rotation.sin() as f64 + (y2 - y1) * rotation.cos() as f64;
+
+    (new_x, new_y)
+}
+
+fn inverse_rotate_about_origin(
+    new_x: f64,
+    new_y: f64,
+    x1: f64,
+    y1: f64,
+    rotation: f64,
+) -> (f64, f64) {
+    // Use the negative of the original rotation angle
+    let inverse_rotation = -rotation;
+
+    // Apply the inverse rotation
+    let x2 = x1 + (new_x - x1) * inverse_rotation.cos() - (new_y - y1) * inverse_rotation.sin();
+    let y2 = y1 + (new_x - x1) * inverse_rotation.sin() + (new_y - y1) * inverse_rotation.cos();
+
+    (x2, y2)
+}
+
 /// a is the parent
 impl<'a, 'b> std::ops::Add<&'b Transform> for &'a Transform {
     type Output = Transform;
 
     fn add(self, other: &'b Transform) -> Transform {
-        Transform {
-            x: self.x + other.x,
-            y: self.y + other.y,
+        let (new_x, new_y) = rotate_about_origin(self.x, self.y, other.x, other.y, self.rotation);
+
+        let new_transform = Transform {
+            x: new_x,
+            y: new_y,
             z: self.z + other.z,
             rotation: self.rotation + other.rotation,
             scale: self.scale * other.scale,
             origin_x: self.origin_x - other.origin_x as f32,
             origin_y: self.origin_y - other.origin_y as f32,
-        }
+        };
+
+        new_transform
     }
 }
 
+/// used to "unparent" an object
 /// a is the parent
 impl<'a, 'b> std::ops::Sub<&'b Transform> for &'a Transform {
     type Output = Transform;
 
     fn sub(self, other: &'b Transform) -> Transform {
+        let x = self.x;
+        let y = self.y;
+        let p1_x = other.x;
+        let p1_y = other.y;
+        let rotation = self.rotation - other.rotation;
+
+        // this should be the reverse of the rotation... but its not working right now so i need to fix it
+        let p2_x = ((-x + p1_x) / rotation.sin() - p1_x * (1.0 / rotation.tan()) + p1_y
+            - ((y - p1_y) / rotation.cos())
+            - p1_x * rotation.tan()
+            + p1_y)
+            / (rotation.tan() + 1.0 / rotation.tan());
+
+        let p2_y =
+            -(x - p1_x + p1_x * rotation.cos() - p1_y * rotation.sin() - p2_x * rotation.cos())
+                / rotation.sin();
+
         Transform {
-            x: self.x - other.x,
-            y: self.y - other.y,
+            x: p2_x,
+            y: p2_y,
             z: self.z - other.z,
             rotation: self.rotation - other.rotation,
             scale: self.scale / other.scale,
-            origin_x: self.origin_x + other.origin_x as f32,
-            origin_y: self.origin_y + other.origin_y as f32,
+            origin_x: self.origin_x + other.origin_x,
+            origin_y: self.origin_y + other.origin_y,
         }
     }
 }
 
-fn get_transform_recursive(
+fn get_entity_path(
     entity: Entity,
     entities_and_components: &EntitiesAndComponents,
-    mut transform_offset: Transform,
-) -> Transform {
-    let (transform,) = entities_and_components.try_get_components::<(Transform,)>(entity);
-    if let Some(transform) = transform {
-        transform_offset = &transform_offset + transform;
-    }
+    mut path: Vec<Entity>,
+) -> Vec<Entity> {
+    path.push(entity);
 
     let parent = entities_and_components.get_parent(entity);
     if let Some(parent) = parent {
-        return get_transform_recursive(parent, entities_and_components, transform_offset);
+        return get_entity_path(parent, entities_and_components, path);
     } else {
-        return transform_offset;
+        return path;
     }
 }
 
 /// gets the transform of an entity, this will return the total transform of the entity, including the transform(s) of the parent(s)
 pub fn get_transform(entity: Entity, entities_and_components: &EntitiesAndComponents) -> Transform {
-    get_transform_recursive(entity, entities_and_components, Transform::default())
+    // this is neccessary because the parent transform needs to be applied first
+    let path = get_entity_path(entity, entities_and_components, Vec::new());
+    let mut transform = Transform::default();
+    for entity in path.iter().rev() {
+        let (transform_component,) =
+            entities_and_components.get_components::<(Transform,)>(*entity);
+        transform = &transform + &transform_component;
+    }
+
+    transform
 }
 
 /// Scene is responsible for holding all objects and the background color
@@ -143,5 +195,46 @@ impl Scene {
         add_default_resources(&mut scene);
 
         scene
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transform_add_sub_cancellation() {
+        // test that a - b + b = a
+
+        let a = Transform {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+            rotation: 1.0,
+            scale: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        };
+
+        let b = Transform {
+            x: 2.0,
+            y: 2.0,
+            z: 2.0,
+            rotation: 2.0,
+            scale: 1.0,
+            origin_x: 0.0,
+            origin_y: 0.0,
+        };
+
+        let a_plus_b = &a + &b;
+        let a_plus_b_minus_b = &a_plus_b - &b;
+
+        if a_plus_b_minus_b != a {
+            println!("{:?}", a);
+            println!("{:?}", b);
+            println!("{:?}", a_plus_b);
+            println!("{:?}", a_plus_b_minus_b);
+            panic!("{:?} != {:?}", a_plus_b_minus_b, a);
+        }
     }
 }

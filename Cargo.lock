@@ -2486,6 +2486,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rotation_example"
+version = "0.1.0"
+dependencies = [
+ "ABC_Game_Engine",
+ "ABC_lumenpyx",
+]
+
+[[package]]
 name = "roxmltree"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
