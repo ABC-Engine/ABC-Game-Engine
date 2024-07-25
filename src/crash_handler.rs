@@ -19,7 +19,6 @@ pub(crate) fn crash_handler() {
         let date_and_time = chrono::Local::now().format("%Y-%m-%d-%H-%M-%S").to_string();
         let log_path = format!("crashes/error-{}.log", date_and_time);
 
-        //println!("logging error to: {}", log_path);
         let log_file = File::create(log_path).expect("Could not create log file");
         let stderr = Stdio::from(log_file);
 

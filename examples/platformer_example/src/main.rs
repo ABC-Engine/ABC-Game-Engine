@@ -1,23 +1,9 @@
-use core::panic;
-
-use physics::rapier2d::na as nalgebra;
-use physics::rapier2d::prelude::RigidBody;
-use ABC_Game_Engine::physics::physics_system::RapierPhysicsInfo;
-use ABC_Game_Engine::physics::rapier2d::dynamics::RigidBodyBuilder;
-use ABC_Game_Engine::physics::rapier2d::geometry::Collider;
-use ABC_Game_Engine::physics::rapier2d::geometry::ColliderBuilder;
-use ABC_Game_Engine::physics::rapier2d::geometry::ColliderHandle;
 use ABC_Game_Engine::physics::rapier2d::geometry::Ray;
 use ABC_Game_Engine::physics::rapier2d::math::Real;
+use ABC_Game_Engine::physics::rapier2d::na as nalgebra;
 use ABC_Game_Engine::physics::rapier2d::na::vector;
-use ABC_Game_Engine::physics::rapier2d::pipeline::QueryFilter;
-use ABC_Game_Engine::*;
-use ABC_lumenpyx::primitives::Circle;
-use ABC_lumenpyx::primitives::Rectangle;
-use ABC_lumenpyx::render;
-use ABC_lumenpyx::Camera;
-use ABC_lumenpyx::LumenpyxEventLoop;
-use ABC_lumenpyx::RenderSettings;
+use ABC_Game_Engine::prelude::*;
+use ABC_lumenpyx::prelude::*;
 
 struct Player;
 struct Ground;
@@ -95,11 +81,6 @@ impl System for PlayerController {
                 let intersection = intersection.unwrap();
 
                 if intersection.1 < 0.01 {
-                    let intersection_entity = intersection.0;
-
-                    if intersection_entity == player_entity {
-                        panic!("Player is intersecting with itself");
-                    }
                     normalized_dir[1] = 1.0;
                 }
             }

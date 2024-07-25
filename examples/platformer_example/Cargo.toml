@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 ABC_Game_Engine = { path = "../../" }
-#ABC_lumenpyx = { git = "https://github.com/ABC-Engine/ABC_Lumenpyx" }
-ABC_lumenpyx = { path = "../../../ABC_Lumenpyx" }
+ABC_lumenpyx = { git = "https://github.com/ABC-Engine/ABC_Lumenpyx" }
