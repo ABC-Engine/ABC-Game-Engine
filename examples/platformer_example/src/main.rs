@@ -159,9 +159,9 @@ fn main() {
             Player {},
         ));
 
-        let ground_collider = ColliderBuilder::cuboid(160.0, 10.0).build();
+        let ground_collider = ColliderBuilder::cuboid(160.0, 5.0).build();
         let ground_rb = RigidBodyBuilder::fixed().build();
-        let ground_rect = Rectangle::new([1.0, 1.0, 1.0, 1.0], 160.0, 10.0);
+        let ground_rect = Rectangle::new([0.0, 1.0, 1.0, 1.0], 160.0, 10.0);
 
         entities_and_components.add_entity_with((
             ground_rect,
@@ -184,7 +184,17 @@ fn main() {
         speed: 1000.0,
         jump_force: 3000.0,
     });
+
     physics::add_default_physics_systems(&mut scene.world);
+
+    let physics_info = scene
+        .world
+        .entities_and_components
+        .get_resource_mut::<RapierPhysicsInfo>();
+
+    physics_info
+        .expect("Failed to get PhysicsInfo resource")
+        .set_gravity([0.0, -9.81 * 4.0].into());
 
     lumenpyx_eventloop.run(&mut scene.world, |world| {
         world.run();
