@@ -11,7 +11,7 @@ members = [
 
 [package]
 name = "ABC_Game_Engine"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Ethan Almloff <ethanalmloff@gmail.com>"]
 license = "MIT/Apache-2.0"
@@ -24,7 +24,7 @@ categories = ["game-development", "game-engines", "graphics"]
 glam = "0.27.0"
 rand = "0.8.5"
 rodio = "0.17.3"
-ABC-ECS = "0.2.0"
+ABC-ECS = "0.2.1"
 fxhash = "0.2.1"
 rapier2d = "0.19.0"
 tracing = "0.1.40"
