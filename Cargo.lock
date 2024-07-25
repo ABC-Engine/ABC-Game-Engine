@@ -4,11 +4,11 @@ version = 3
 
 [[package]]
 name = "ABC-ECS"
-version = "0.2.0"
-source = "git+https://github.com/ABC-Engine/ABC-ECS#2fb76647094b771f296189b139cde5a7d78068d3"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d656589febd691e58765a02e91b51cc4f5a64a9610bdd7c9ba2121e61063722a"
 dependencies = [
  "anymap",
- "nohash-hasher",
  "rayon",
  "rustc-hash",
  "slotmap",
@@ -20,7 +20,6 @@ version = "0.1.0"
 dependencies = [
  "ABC-ECS",
  "chrono",
- "console_renderer",
  "fxhash",
  "gilrs",
  "glam",
@@ -33,6 +32,7 @@ dependencies = [
 [[package]]
 name = "ABC_lumenpyx"
 version = "0.1.0"
+source = "git+https://github.com/ABC-Engine/ABC_Lumenpyx#f412b350e4908370f1417f1b7a19d6b8a64199f8"
 dependencies = [
  "ABC_Game_Engine",
  "glium",
@@ -1656,6 +1656,7 @@ dependencies = [
 [[package]]
 name = "lumenpyx"
 version = "0.2.1"
+source = "git+https://github.com/ABC-Engine/lumenpyx#640c1a4d81b73bae86c69aeff78b9bdf69dfb96a"
 dependencies = [
  "glium",
  "image",
@@ -1832,12 +1833,6 @@ dependencies = [
  "cfg_aliases 0.2.1",
  "libc",
 ]
-
-[[package]]
-name = "nohash-hasher"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"

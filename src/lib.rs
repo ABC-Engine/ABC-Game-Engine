@@ -1,8 +1,5 @@
 //#![doc = include_str!("../README.md")]
 
-mod resources;
-mod test;
-
 pub use resources::*;
 pub use resources::{delta_time, input};
 pub use ABC_ECS::{
@@ -12,6 +9,7 @@ pub use ABC_ECS::{
 pub(crate) mod crash_handler;
 pub mod physics;
 pub mod prelude;
+mod resources;
 pub mod ui;
 
 /// Transform is a struct that holds the position, rotation, and scale of an object
