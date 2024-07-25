@@ -65,7 +65,7 @@ impl System for PlayerController {
                 normalized_dir[0] += 1.0;
             }
 
-            let is_ground_check = |collider_handle: ColliderHandle, collider: &Collider| {
+            let is_ground_check = |collider_handle: ColliderHandle, _: &Collider| {
                 let entity = physics_info
                     .get_associated_entity_with_collider_handle(collider_handle.into())
                     .expect("Failed to get associated entity with collider handle");
@@ -105,7 +105,7 @@ impl System for PlayerController {
             }
         }
 
-        if let (Some(player), Some(transform), Some(rigid_body)) = entities_and_components
+        if let (Some(_), Some(_), Some(rigid_body)) = entities_and_components
             .try_get_components_mut::<(Player, Transform, RigidBody)>(player_entity)
         {
             rigid_body.apply_impulse(
