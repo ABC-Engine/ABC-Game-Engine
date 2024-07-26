@@ -1,3 +1,26 @@
+<h1 align="center">Floneum</h1>
+<div align="center">
+  <!-- Crates version -->
+  <a href="https://crates.io/crates/ABC_Game_Engine">
+    <img src="https://img.shields.io/crates/v/ABC_Game_Engine.svg?style=flat-square"
+    alt="Crates.io version" />
+  </a>
+  <!-- Downloads -->
+  <a href="https://crates.io/crates/ABC_Game_Engine">
+    <img src="https://img.shields.io/crates/d/ABC_Game_Engine.svg?style=flat-square"
+      alt="Download" />
+  </a>
+  <!-- docs -->
+  <a href="https://docs.rs/ABC_Game_Engine">
+    <img src="https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square"
+      alt="docs.rs docs" />
+  </a>
+  <!-- Discord -->
+  <a href="https://discord.gg/55R3GsBSYC">
+    <img src="https://img.shields.io/discord/1224029164798087239?logo=discord&style=flat-square" alt="Discord Link" />
+  </a>
+</div>
+
 ![s2Kkdcv](https://github.com/ABC-Engine/ABC-Game-Engine/assets/76850177/9f511895-ed68-498e-bd8b-8741ae10cfa2)
 
 # [Website](https://abc-engine.com)
