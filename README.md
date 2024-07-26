@@ -1,4 +1,3 @@
-<h1 align="center">Floneum</h1>
 <div align="center">
   <!-- Crates version -->
   <a href="https://crates.io/crates/ABC_Game_Engine">
