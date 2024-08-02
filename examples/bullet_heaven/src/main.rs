@@ -217,9 +217,6 @@ impl System for PlayerShootingSystem {
                         if let Some(_) =
                             entities_and_components.try_get_component::<Enemy>(other_entity)
                         {
-                            //let (other_transform,) =
-                            //    get_components!(entities_and_components, other_entity, Transform);
-
                             let (other_transform,) = entities_and_components
                                 .get_components::<(Transform,)>(other_entity); // can't fail unless multithreaded
 
@@ -393,8 +390,10 @@ impl System for BulletCollisionSystem {
                                 [other_transform.x, other_transform.y],
                                 1,
                             );
-                            entities_and_components.remove_entity(self_entity);
-                            entities_and_components.remove_entity(enemy_entity);
+                            entities_and_components
+                                .add_component_to(self_entity, MarkedForRemoval {});
+                            entities_and_components
+                                .add_component_to(enemy_entity, MarkedForRemoval {});
                             break;
                         }
                     }
