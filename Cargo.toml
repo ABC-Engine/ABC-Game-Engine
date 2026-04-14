@@ -22,7 +22,7 @@ categories = ["game-development", "game-engines", "graphics"]
 
 [dependencies]
 glam = "0.27.0"
-rand = "0.8.5"
+rand = "0.9.3"
 rodio = "0.17.3"
 ABC-ECS = "0.2.1"
 fxhash = "0.2.1"
